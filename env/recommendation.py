@@ -1,6 +1,4 @@
 import torch
-from collections import Iterable
-from configs import configfile_recommendation_a
 
 HR_action_maptoword = ['not hire', 'hire']
 professor_action_maptoword = ['not recommend', 'recommend']
