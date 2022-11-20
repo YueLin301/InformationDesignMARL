@@ -5,7 +5,8 @@ from env.recommendation import student_charc_maptoword, professor_action_maptowo
 def run_an_episode(env, pro, hr, ith_episode=None, pls_print=False):
     obs_pro = env.reset().double()  # obs_pro == student_charac
     message_onehot_pro, message_prob_pro, message_pro = pro.send_message(obs_pro, )  # message_pro == letter
-    a_int_hr, a_prob_hr, a_logprob_hr = hr.choose_action(message_onehot_pro)  # a_int_hr == hire_decision
+    a_int_hr, a_prob_hr, a_logprob_hr = hr.choose_action(message_onehot_pro,
+                                                         using_epsilon=True)  # a_int_hr == hire_decision
     reward_pro, reward_hr = env.step(obs_pro, a_int_hr)
 
     transition = transition_class()
@@ -13,6 +14,8 @@ def run_an_episode(env, pro, hr, ith_episode=None, pls_print=False):
                            message_onehot_pro, message_prob_pro, message_pro,
                            a_int_hr, a_prob_hr, a_logprob_hr,
                            reward_pro, reward_hr])
+
+    hr.epsilon = hr.epsilon * hr.config.hr.epsilon_decay
 
     if pls_print:
         print('----------------------------------------')
