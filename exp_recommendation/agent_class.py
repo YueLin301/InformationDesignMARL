@@ -1,18 +1,26 @@
 import torch
 from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_layers
-from exp_recommendation.network import *
 
 
 class pro_class():
     def __init__(self, config):
+        self.name = 'pro'
         self.config = config
 
-        self.critic = critic_pro
-        self.signaling_net = signaling_net
+        # q(s,a), rather than q(s,sigma)
+        self.critic = torch.nn.Sequential(
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.ReLU(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
+        )
+        self.signaling_net = torch.nn.Sequential(
+            # input: one hot; output: signaling 0/1 prob. distribution
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Softmax(dim=-1)
+        )
 
         if config.train.initialize:
             set_net_params(self.critic, params=config.pro.critic_pro_params.clone())
-            set_net_params(self.signaling_net, params=config.env.signaling_params.clone())
+            set_net_params(self.signaling_net, params=config.pro.signaling_params.clone())
 
         self.critic_loss_criterion = torch.nn.MSELoss()
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
@@ -147,24 +155,35 @@ class pro_class():
 
 class hr_class():
     def __init__(self, config):
+        self.name = 'hr'
         self.config = config
 
-        self.critic = critic_hr
-        self.actor = actor
+        self.critic = torch.nn.Sequential(
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.ReLU(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
+        )
+        self.actor = torch.nn.Sequential(
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Softmax(dim=-1)
+        )
 
         if config.train.initialize:
-            set_net_params(self.critic, params=config.env.critic_params.clone())
-            set_net_params(self.actor, params=config.env.actor_params.clone())
+            set_net_params(self.critic, params=config.hr.critic_params.clone())
+            set_net_params(self.actor, params=config.hr.actor_params.clone())
 
         self.critic_loss_criterion = torch.nn.MSELoss()
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.hr.lr_critic)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.hr.lr_actor)
 
+        self.epsilon = config.hr.epsilon_start
+
     def build_connection(self, pro):
         self.pro = pro
 
-    def choose_action(self, message):
+    def choose_action(self, message, using_epsilon=False):
         pi = self.actor(message)
+        if using_epsilon:
+            pi = (1 - self.epsilon) * pi + self.epsilon / 2
         distribution = torch.distributions.Categorical(pi)
         a = distribution.sample([1])
         return a, pi, distribution.log_prob(a),
@@ -191,16 +210,19 @@ class hr_class():
 
             td_target = transition.reward_hr + q_next
             td_target = torch.tensor(td_target, dtype=torch.double)  # 没梯度的，没事
-            # td_error = td_target - q
 
             critic_loss_i = self.critic_loss_criterion(td_target, q)  # 没梯度的，没事
             critic_loss = critic_loss + critic_loss_i
 
-            v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
-            advantage = q - v
-            # actor_obj_i = transition.reward_hr * transition.a_logprob_hr
-            # actor_obj_i = td_error * transition.a_logprob_hr
-            actor_obj_i = advantage * transition.a_logprob_hr
+            if self.config.train.GAE_term == 'TD-error':
+                td_error = td_target - q
+                actor_obj_i = td_error * transition.a_logprob_hr
+            elif self.config.train.GAE_term == 'advantage':
+                v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
+                advantage = q - v
+                actor_obj_i = advantage * transition.a_logprob_hr
+            else:
+                raise NotImplementedError
 
             actor_obj = actor_obj + actor_obj_i
 
