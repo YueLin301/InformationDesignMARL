@@ -68,7 +68,7 @@ def validate_critic(agent):
             input = torch.tensor(input1_onehot + input2_onehot, dtype=torch.double)
             q = agent.critic(input)
             if agent.name == 'pro':
-                print('state:{}, action:{}, q:{}'.format(input1, input2, q))
+                print('state:{}, signal:{}, q:{}'.format(input1, input2, q))
             elif agent.name == 'hr':
                 print('signal:{}, action:{}, q:{}'.format(input1, input2, q))
     return

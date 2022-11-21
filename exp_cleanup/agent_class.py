@@ -98,23 +98,21 @@ class pro_class():
             phi_sigma = transition.message_prob_pro[int(sigma)]  # message_prob_pro[int(sigma)]
             pi_at = transition.a_prob_hr[a]  # a_prob_hr[at]
 
-            log_phi_sigma = torch.log(phi_sigma)
-            log_pi_at = torch.log(pi_at)
+            gradeta_phi_sigma = torch.autograd.grad(phi_sigma, list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_phi_sigma_flatten = flatten_layers(gradeta_phi_sigma, dim=1)  # (n, 1)
 
-            gradeta_log_phi_sigma = torch.autograd.grad(log_phi_sigma, list(self.signaling_net.parameters()),
-                                                        retain_graph=True)
-            gradeta_log_phi_sigma_flatten = flatten_layers(gradeta_log_phi_sigma, dim=1)  # (n, 1)
-
-            gradeta_log_pi_at = torch.autograd.grad(log_pi_at, list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_log_pi_at_flatten = flatten_layers(gradeta_log_pi_at, dim=1)
+            gradeta_pi_at = torch.autograd.grad(pi_at, list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_pi_at_flatten = flatten_layers(gradeta_pi_at, dim=1)
 
             a_int_hr = transition.a_int_hr
             a_onehot_hr = int_to_onehot(a_int_hr)
             obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr])
             q = self.critic(obs_and_a_onehot).squeeze()
 
-            # SG (Signaling Gradient)
-            gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten * self.temperature + gradeta_log_pi_at_flatten)
+            gradeta_flatten_i = q * (
+                    pi_at * gradeta_phi_sigma_flatten * self.temperature
+                    + phi_sigma * gradeta_pi_at_flatten
+            )
             gradeta_flatten = gradeta_flatten + gradeta_flatten_i
 
             # Constraints, Lagrangian
