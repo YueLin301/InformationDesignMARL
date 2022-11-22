@@ -12,12 +12,13 @@ config.env = config_env
 config.pro = ConfigDict()
 config.pro.fixed_signaling_scheme = False
 
-config.pro.lr_pro_critic = 1e-4
-config.pro.lr_signal = 1e-4
+config.pro.lr_pro_critic = 1.5e-2
+config.pro.lr_signal = 1.5e-2
 
 config.pro.constraint_right = 0
-config.pro.sender_objective_alpha = 0.05625  # Lagrangian lambda
-# [0, 0.1125] -> [0.05625, 0.1125]
+config.pro.sender_objective_alpha = 0.28125  # Lagrangian lambda
+# [0, 0.5] -> [0.25, 0.5] -> [0.25, 0.375] -> [0.25, 0.3125] -> [0.28125, 0.3125]
+# -> [0.28125, 0.296875]
 
 config.pro.initialize = True
 if config.pro.initialize:
@@ -34,8 +35,8 @@ config.hr = ConfigDict()
 
 config.hr.fixed_policy = False
 
-config.hr.lr_critic = 5e-3
-config.hr.lr_actor = 5e-3
+config.hr.lr_critic = 2e-2
+config.hr.lr_actor = 2e-2
 
 config.hr.epsilon_start = 0  # epsilon_greedy
 config.hr.epsilon_decay = 0  # after running an episode: epsilon <- epsilon * epsilon_decay
@@ -53,11 +54,12 @@ if config.hr.initialize:
 '''train'''
 config.train = ConfigDict()
 
-# config.train.n_episodes = 3e4
+config.train.n_episodes = 3e4
+# config.train.n_episodes = 6e4
 # config.train.n_episodes = 5e4
 # config.train.n_episodes = 4e5
-config.train.n_episodes = 1e6
+# config.train.n_episodes = 1e6
 
-config.train.howoften_update = 3
+config.train.howoften_update = 20
 
 config.train.GAE_term = 'TD-error'

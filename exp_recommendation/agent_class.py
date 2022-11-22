@@ -115,6 +115,7 @@ class pro_class():
 
             # SG (Signaling Gradient)
             gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten * self.temperature + gradeta_log_pi_at_flatten)
+            # gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten + gradeta_log_pi_at_flatten)
             gradeta_flatten = gradeta_flatten + gradeta_flatten_i
 
             # Constraints, Lagrangian
@@ -203,6 +204,7 @@ class hr_class():
     def update_ac(self, buffer):
         critic_loss = 0
         actor_obj = 0
+        entropy = 0
         for transition in buffer:
             a_onehot_hr = int_to_onehot(transition.a_int_hr)
             message_and_a = torch.cat([transition.message_onehot_pro, a_onehot_hr])
@@ -216,11 +218,13 @@ class hr_class():
             critic_loss_i = self.critic_loss_criterion(td_target, q)  # 没梯度的，没事
             critic_loss = critic_loss + critic_loss_i
 
+            v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
+
             if self.config.train.GAE_term == 'TD-error':
-                td_error = td_target - q
+                td_error = td_target - v
                 actor_obj_i = td_error * transition.a_logprob_hr
             elif self.config.train.GAE_term == 'advantage':
-                v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
+
                 advantage = q - v
                 actor_obj_i = advantage * transition.a_logprob_hr
             else:
@@ -228,8 +232,12 @@ class hr_class():
 
             actor_obj = actor_obj + actor_obj_i
 
+            entropy_i = -torch.sum(transition.a_prob_hr * torch.log(transition.a_prob_hr))
+            entropy = entropy + entropy_i
+
         critic_loss = critic_loss / len(buffer)
         actor_obj = actor_obj / len(buffer)
+        entropy = entropy / len(buffer)
 
         '''更新'''
         if not self.config.hr.fixed_policy:

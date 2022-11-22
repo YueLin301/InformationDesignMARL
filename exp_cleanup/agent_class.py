@@ -2,9 +2,9 @@ import torch
 from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_layers
 
 
-class pro_class():
+class sender_class():
     def __init__(self, config):
-        self.name = 'pro'
+        self.name = 'sender'
         self.config = config
 
         # q(s,a), rather than q(s,sigma)
@@ -30,8 +30,8 @@ class pro_class():
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
         self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
-    def build_connection(self, hr):
-        self.hr = hr
+    def build_connection(self, receiver):
+        self.receiver = receiver
 
     def update_c(self, buffer):
         critic_loss = 0
@@ -39,7 +39,7 @@ class pro_class():
             obs = transition.obs_pro
             obs_int = 0 if obs < 0.5 else 1
             obs_onehot = int_to_onehot(obs_int)
-            r = transition.reward_pro  # reward_pro
+            r = transition.reward_sender  # reward_sender
 
             a_int_hr = transition.a_int_hr
             a_onehot_hr = int_to_onehot(a_int_hr)
@@ -72,11 +72,11 @@ class pro_class():
 
     def send_message(self, obs):
         obs_int = 0 if obs < 0.5 else 1
-        if not self.config.pro.fixed_signaling_scheme:
+        if not self.config.sender.fixed_signaling_scheme:
             obs_onehot = int_to_onehot(obs_int)
             phi_current = self.signaling_net(obs_onehot)
         else:
-            phi_current = self.config.pro.signaling_scheme[obs_int]
+            phi_current = self.config.sender.signaling_scheme[obs_int]
 
         g = self.gumbel_sample(dim=2)
         logits_forGumbel = (torch.log(phi_current) + g) / self.temperature
@@ -153,9 +153,9 @@ class pro_class():
         return
 
 
-class hr_class():
+class receiver_class():
     def __init__(self, config):
-        self.name = 'hr'
+        self.name = 'receiver'
         self.config = config
 
         self.critic = torch.nn.Sequential(
@@ -177,8 +177,8 @@ class hr_class():
 
         self.epsilon = config.hr.epsilon_start
 
-    def build_connection(self, pro):
-        self.pro = pro
+    def build_connection(self, sender):
+        self.sender = sender
 
     def choose_action(self, message, using_epsilon=False):
         pi = self.actor(message)

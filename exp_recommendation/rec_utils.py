@@ -197,7 +197,7 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
              reward_compare_curve, reward_socialwalfare_curve,
              phi_rec_when_bad_curve, phi_rec_when_good_curve,
              pi_hire_when_notrec_curve, pi_hire_when_rec_curve):
-    data = np.array(fake_buffer)
+    data = np.array(fake_buffer, dtype=object)
 
     y_reward_pro = data[:, -2]
     y_reward_hr = data[:, -1]
