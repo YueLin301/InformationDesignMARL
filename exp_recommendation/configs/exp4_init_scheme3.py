@@ -15,10 +15,11 @@ config.pro.fixed_signaling_scheme = False
 config.pro.lr_pro_critic = 1.5e-2
 config.pro.lr_signal = 1.5e-2
 
-config.pro.constraint_right = 0
-config.pro.sender_objective_alpha = 0.28125  # Lagrangian lambda
-# [0, 0.5] -> [0.25, 0.5] -> [0.25, 0.375] -> [0.25, 0.3125] -> [0.28125, 0.3125]
-# -> [0.28125, 0.296875]
+config.pro.constraint_right = 2/3
+config.pro.sender_objective_alpha = 0.2829  # Lagrangian lambda
+# [0, 0.5] -> [0.25, 0.5] -> [0.25, 0.375] -> [0.25, 0.3125] -> [0.28125, 0.3125] -> [0.28125, 0.296875]
+# [0.282, 0.283]
+# [0.2825, ]
 
 config.pro.initialize = True
 if config.pro.initialize:
