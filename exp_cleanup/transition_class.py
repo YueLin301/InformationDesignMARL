@@ -1,6 +1,3 @@
-import torch
-
-
 class transition_class(object):
 
     def __init__(self, ):
@@ -12,7 +9,7 @@ class transition_class(object):
         self.a_int_hr, self.a_prob_hr, self.a_logprob_hr, \
         self.reward_pro, self.reward_hr = [None] * 9
 
-        self.transition_detach = None
+        self.transition = None
         return
 
     def set_values(self, transition):
@@ -21,17 +18,7 @@ class transition_class(object):
         self.a_int_hr, self.a_prob_hr, self.a_logprob_hr, \
         self.reward_pro, self.reward_hr = transition
 
-        transition_detach = []
-        for i in range(len(transition)):
-            if isinstance(transition[i], torch.Tensor):
-                if not transition[i].squeeze().size():
-                    transition_detach.append(transition[i].item())
-                else:
-                    transition_detach.append(transition[i].tolist())
-            else:
-                transition_detach.append(transition[i])
-
-        self.transition_detach = transition_detach
+        self.transition = transition
         return
 
     def get_values(self):

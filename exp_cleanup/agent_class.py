@@ -2,9 +2,9 @@ import torch
 from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_layers
 
 
-class pro_class():
+class sender_class():
     def __init__(self, config):
-        self.name = 'pro'
+        self.name = 'sender'
         self.config = config
 
         # q(s,a), rather than q(s,sigma)
@@ -30,8 +30,8 @@ class pro_class():
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
         self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
-    def build_connection(self, hr):
-        self.hr = hr
+    def build_connection(self, receiver):
+        self.receiver = receiver
 
     def update_c(self, buffer):
         critic_loss = 0
@@ -39,7 +39,7 @@ class pro_class():
             obs = transition.obs_pro
             obs_int = 0 if obs < 0.5 else 1
             obs_onehot = int_to_onehot(obs_int)
-            r = transition.reward_pro  # reward_pro
+            r = transition.reward_sender  # reward_sender
 
             a_int_hr = transition.a_int_hr
             a_onehot_hr = int_to_onehot(a_int_hr)
@@ -72,11 +72,11 @@ class pro_class():
 
     def send_message(self, obs):
         obs_int = 0 if obs < 0.5 else 1
-        if not self.config.pro.fixed_signaling_scheme:
+        if not self.config.sender.fixed_signaling_scheme:
             obs_onehot = int_to_onehot(obs_int)
             phi_current = self.signaling_net(obs_onehot)
         else:
-            phi_current = self.config.pro.signaling_scheme[obs_int]
+            phi_current = self.config.sender.signaling_scheme[obs_int]
 
         g = self.gumbel_sample(dim=2)
         logits_forGumbel = (torch.log(phi_current) + g) / self.temperature
@@ -98,24 +98,21 @@ class pro_class():
             phi_sigma = transition.message_prob_pro[int(sigma)]  # message_prob_pro[int(sigma)]
             pi_at = transition.a_prob_hr[a]  # a_prob_hr[at]
 
-            log_phi_sigma = torch.log(phi_sigma)
-            log_pi_at = torch.log(pi_at)
+            gradeta_phi_sigma = torch.autograd.grad(phi_sigma, list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_phi_sigma_flatten = flatten_layers(gradeta_phi_sigma, dim=1)  # (n, 1)
 
-            gradeta_log_phi_sigma = torch.autograd.grad(log_phi_sigma, list(self.signaling_net.parameters()),
-                                                        retain_graph=True)
-            gradeta_log_phi_sigma_flatten = flatten_layers(gradeta_log_phi_sigma, dim=1)  # (n, 1)
-
-            gradeta_log_pi_at = torch.autograd.grad(log_pi_at, list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_log_pi_at_flatten = flatten_layers(gradeta_log_pi_at, dim=1)
+            gradeta_pi_at = torch.autograd.grad(pi_at, list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_pi_at_flatten = flatten_layers(gradeta_pi_at, dim=1)
 
             a_int_hr = transition.a_int_hr
             a_onehot_hr = int_to_onehot(a_int_hr)
             obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr])
             q = self.critic(obs_and_a_onehot).squeeze()
 
-            # SG (Signaling Gradient)
-            gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten * self.temperature + gradeta_log_pi_at_flatten)
-            # gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten + gradeta_log_pi_at_flatten)
+            gradeta_flatten_i = q * (
+                    pi_at * gradeta_phi_sigma_flatten * self.temperature
+                    + phi_sigma * gradeta_pi_at_flatten
+            )
             gradeta_flatten = gradeta_flatten + gradeta_flatten_i
 
             # Constraints, Lagrangian
@@ -156,9 +153,9 @@ class pro_class():
         return
 
 
-class hr_class():
+class receiver_class():
     def __init__(self, config):
-        self.name = 'hr'
+        self.name = 'receiver'
         self.config = config
 
         self.critic = torch.nn.Sequential(
@@ -180,8 +177,8 @@ class hr_class():
 
         self.epsilon = config.hr.epsilon_start
 
-    def build_connection(self, pro):
-        self.pro = pro
+    def build_connection(self, sender):
+        self.sender = sender
 
     def choose_action(self, message, using_epsilon=False):
         pi = self.actor(message)
@@ -204,7 +201,6 @@ class hr_class():
     def update_ac(self, buffer):
         critic_loss = 0
         actor_obj = 0
-        entropy = 0
         for transition in buffer:
             a_onehot_hr = int_to_onehot(transition.a_int_hr)
             message_and_a = torch.cat([transition.message_onehot_pro, a_onehot_hr])
@@ -218,13 +214,11 @@ class hr_class():
             critic_loss_i = self.critic_loss_criterion(td_target, q)  # 没梯度的，没事
             critic_loss = critic_loss + critic_loss_i
 
-            v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
-
             if self.config.train.GAE_term == 'TD-error':
-                td_error = td_target - v
+                td_error = td_target - q
                 actor_obj_i = td_error * transition.a_logprob_hr
             elif self.config.train.GAE_term == 'advantage':
-
+                v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
                 advantage = q - v
                 actor_obj_i = advantage * transition.a_logprob_hr
             else:
@@ -232,12 +226,8 @@ class hr_class():
 
             actor_obj = actor_obj + actor_obj_i
 
-            entropy_i = -torch.sum(transition.a_prob_hr * torch.log(transition.a_prob_hr))
-            entropy = entropy + entropy_i
-
         critic_loss = critic_loss / len(buffer)
         actor_obj = actor_obj / len(buffer)
-        entropy = entropy / len(buffer)
 
         '''更新'''
         if not self.config.hr.fixed_policy:

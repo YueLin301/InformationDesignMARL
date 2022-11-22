@@ -22,17 +22,11 @@ def run_an_episode(env, pro, hr, ith_episode=None, pls_print=False):
         if ith_episode or type(ith_episode) is int and ith_episode == 0:
             print('The ' + str(ith_episode) + ' episode finished.')
         print('pro_obs:\t', student_charc_maptoword[obs_pro.detach().int()])
-        if message_pro.detach() > 0.5:
-            message_idx = 1
-        else:
-            message_idx = 0
+        message_idx = 1 if message_pro.detach() > 0.5 else 0
         print('message:\t', professor_action_maptoword[message_idx])
         print('mess_OH:\t', message_onehot_pro.tolist())
         print('pro_prob:\t', message_prob_pro.detach().tolist())
-        if a_int_hr.detach() > 0.5:
-            action_idx = 1
-        else:
-            action_idx = 0
+        action_idx = 1 if a_int_hr.detach() > 0.5 else 0
         print('hr_action:\t', HR_action_maptoword[action_idx])
         print('hr_prob:\t', a_prob_hr.detach().tolist())
         print('pro_reward:\t', reward_pro)

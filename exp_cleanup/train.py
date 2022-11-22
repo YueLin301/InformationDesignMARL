@@ -2,8 +2,6 @@ from env import recommendation
 from exp_recommendation.agent_class import pro_class, hr_class
 from exp_recommendation.episode_generator import run_an_episode
 
-from exp_recommendation.rec_utils import print_params, validate
-
 
 def set_Env_and_Agents(config):
     print('----------------------------------------')
@@ -28,14 +26,9 @@ def train(config, env, pro, hr):
         buffer = []
         for _ in range(config.train.howoften_update):
             transition = run_an_episode(env, pro, hr, ith_episode=i_episode, pls_print=False)
-            fake_buffer.append(transition.transition_detach)
+            fake_buffer.append(transition.transition)
             buffer.append(transition)
-
-            # print_params(pro, hr)
-            # validate(pro, hr)
-
             i_episode += 1
-
         hr.update_ac(buffer)
         pro.update_c(buffer)
 
@@ -43,12 +36,8 @@ def train(config, env, pro, hr):
         if not config.pro.fixed_signaling_scheme:
             for _ in range(config.train.howoften_update):
                 transition = run_an_episode(env, pro, hr, ith_episode=i_episode, pls_print=False)
-                fake_buffer.append(transition.transition_detach)
+                fake_buffer.append(transition.transition)
                 buffer.append(transition)
-
-                # print_params(pro, hr)
-                # validate(pro, hr)
-
                 i_episode += 1
             pro.update_infor_design(buffer)
 
