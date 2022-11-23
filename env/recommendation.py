@@ -28,17 +28,29 @@ class recommendation_env(object):
     def __init__(self, config):
         self.config = config
         self.student_sampler = student_sampler(prob_good=self.config.prob_good)
-        self.rewardmap_professor = config.rewardmap_professor
-        self.rewardmap_HR = config.rewardmap_HR
+        self.rewardmap_professor = torch.tensor(config.rewardmap_professor, dtype=torch.double)
+        self.rewardmap_HR = torch.tensor(config.rewardmap_HR, dtype=torch.double)
+
+        assert config.sample_n_students > 0 and isinstance(config.sample_n_students, int)
+        self.sample_n_students = config.sample_n_students
         return
 
-    def reset(self, ):
-        student_charac = self.student_sampler.sample(self.config.num_sample)
+    def reset(self):
+        student_charac = self.student_sampler.sample(self.sample_n_students)
         return student_charac
 
+    def get_rewards(self, name, student_charac, hire_decision):
+        assert name in ['pro', 'hr']
+        rewardmap = self.rewardmap_professor if name == 'pro' else self.rewardmap_HR
+
+        rewards = rewardmap[student_charac, hire_decision]
+        return rewards
+
     def step(self, student_charac, hire_decision):
-        student_charac = student_charac.detach().int()
-        hire_decision = hire_decision.detach().int()
-        reward_professor = self.rewardmap_professor[student_charac][hire_decision]
-        reward_HR = self.rewardmap_HR[student_charac][hire_decision]
+        student_charac = student_charac.detach()
+        hire_decision = hire_decision.detach()
+
+        reward_professor = self.rewardmap_professor[student_charac, hire_decision]
+        reward_HR = self.rewardmap_HR[student_charac, hire_decision]
+
         return reward_professor * self.config.reward_magnification_factor, reward_HR * self.config.reward_magnification_factor

@@ -114,8 +114,7 @@ class pro_class():
             q = self.critic(obs_and_a_onehot).squeeze()
 
             # SG (Signaling Gradient)
-            gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten * self.temperature + gradeta_log_pi_at_flatten)
-            # gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten + gradeta_log_pi_at_flatten)
+            gradeta_flatten_i = q * (gradeta_log_phi_sigma_flatten + gradeta_log_pi_at_flatten * self.temperature)
             gradeta_flatten = gradeta_flatten + gradeta_flatten_i
 
             # Constraints, Lagrangian
