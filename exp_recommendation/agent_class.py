@@ -27,7 +27,7 @@ class pro_class():
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.pro.lr_signal)
 
-        self.temperature = 0.1
+        self.temperature = 0.01
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
         self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
@@ -185,8 +185,6 @@ class hr_class():
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.hr.lr_critic)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.hr.lr_actor)
-
-        self.epsilon = config.hr.epsilon_start
 
     def build_connection(self, pro):
         self.pro = pro

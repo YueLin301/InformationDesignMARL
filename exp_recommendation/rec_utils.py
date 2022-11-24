@@ -146,7 +146,7 @@ def set_seed(myseed):
 
 
 def plot_create_canvas():
-    fig = plt.figure(figsize=(8,6), dpi=300)  # 画布
+    fig = plt.figure(figsize=(8, 6), dpi=300)  # 画布
     fig.canvas.manager.set_window_title('Recommendation Letter Env.')
 
     reward_pro_curve = fig.add_subplot(4, 2, 1)
@@ -205,12 +205,12 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
 
     x_phi_rec_when_bad = (data[0] == 0).nonzero(as_tuple=False).squeeze(dim=1)  # student == 0
     x_phi_rec_when_good = (data[0] == 1).nonzero(as_tuple=False).squeeze(dim=1)
-    y_phi_rec_when_bad = data[2][x_phi_rec_when_bad, 0]
+    y_phi_rec_when_bad = data[2][x_phi_rec_when_bad, 1]  # prob of rec
     y_phi_rec_when_good = data[2][x_phi_rec_when_good, 1]
 
     x_pi_hire_when_notrec = (data[3] < 0.5).nonzero(as_tuple=False).squeeze(dim=1)  # message_pro == 0
     x_pi_hire_when_rec = (data[3] > 0.5).nonzero(as_tuple=False).squeeze(dim=1)
-    y_pi_hire_when_notrec = data[-4][x_pi_hire_when_notrec, 0]
+    y_pi_hire_when_notrec = data[-4][x_pi_hire_when_notrec, 1]  # prob of hire
     y_pi_hire_when_rec = data[-4][x_pi_hire_when_rec, 1]
 
     # smoothing
@@ -219,12 +219,12 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
     y_reward_pro = savgol_filter(y_reward_pro, window_size, polynomial_order)
     y_reward_hr = savgol_filter(y_reward_hr, window_size, 3)
     y_social_welfare = savgol_filter(y_social_welfare, window_size, polynomial_order)
-    window_size2 = 41
-    polynomial_order2 = 2
-    y_phi_rec_when_bad = savgol_filter(y_phi_rec_when_bad, window_size2, polynomial_order2)
-    y_phi_rec_when_good = savgol_filter(y_phi_rec_when_good, window_size2, polynomial_order2)
-    y_pi_hire_when_notrec = savgol_filter(y_pi_hire_when_notrec, window_size2, polynomial_order2)
-    y_pi_hire_when_rec = savgol_filter(y_pi_hire_when_rec, window_size2, polynomial_order2)
+    # window_size2 = 41
+    # polynomial_order2 = 2
+    # y_phi_rec_when_bad = savgol_filter(y_phi_rec_when_bad, window_size2, polynomial_order2)
+    # y_phi_rec_when_good = savgol_filter(y_phi_rec_when_good, window_size2, polynomial_order2)
+    # y_pi_hire_when_notrec = savgol_filter(y_pi_hire_when_notrec, window_size2, polynomial_order2)
+    # y_pi_hire_when_rec = savgol_filter(y_pi_hire_when_rec, window_size2, polynomial_order2)
 
     reward_pro_curve.plot(y_reward_pro)
     reward_hr_curve.plot(y_reward_hr)
@@ -241,6 +241,7 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
     # 画一起去看看趋势
     # pi_hire_when_notrec_curve.plot(x_smooth_phi_rec_when_bad, 1 - y_smooth_phi_rec_when_bad)
     # pi_hire_when_rec_curve.plot(x_smooth_phi_rec_when_good, y_smooth_phi_rec_when_good)
+
 
 '''
 def run_episode_pls_print():

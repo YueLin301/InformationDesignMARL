@@ -36,9 +36,6 @@ config.hr.fixed_policy = False
 config.hr.lr_critic = 2e-2
 config.hr.lr_actor = 2e-2
 
-config.hr.epsilon_start = 0  # epsilon_greedy
-config.hr.epsilon_decay = 0  # after running an episode: epsilon <- epsilon * epsilon_decay
-
 config.hr.initialize = True
 if config.hr.initialize:
     # config.hr.critic_params = [torch.tensor([[1, 1, 1, 1], [1, 1, 1, 1]], dtype=torch.double),
@@ -55,8 +52,6 @@ config.train = ConfigDict()
 config.train.n_episodes = 3e4
 # config.train.n_episodes = 6e4
 # config.train.n_episodes = 1e5
-
-config.train.howoften_update = 1
 
 # config.train.GAE_term = 'TD-error'
 config.train.GAE_term = 'advantage'
