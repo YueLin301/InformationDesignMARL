@@ -1,7 +1,7 @@
 import torch
 
 
-class transition_class(object):
+class buffer_class(object):
 
     def __init__(self, ):
         self.reset()
@@ -12,26 +12,16 @@ class transition_class(object):
         self.a_int_hr, self.a_prob_hr, self.a_logprob_hr, \
         self.reward_pro, self.reward_hr = [None] * 9
 
-        self.transition_detach = None
+        self.values = None
         return
 
-    def set_values(self, transition):
+    def set_values(self, buffer_values):
         self.obs_pro, \
         self.message_onehot_pro, self.message_prob_pro, self.message_pro, \
         self.a_int_hr, self.a_prob_hr, self.a_logprob_hr, \
-        self.reward_pro, self.reward_hr = transition
+        self.reward_pro, self.reward_hr = buffer_values
 
-        transition_detach = []
-        for i in range(len(transition)):
-            if isinstance(transition[i], torch.Tensor):
-                if not transition[i].squeeze().size():
-                    transition_detach.append(transition[i].item())
-                else:
-                    transition_detach.append(transition[i].tolist())
-            else:
-                transition_detach.append(transition[i])
-
-        self.transition_detach = transition_detach
+        self.values = buffer_values
         return
 
     def get_values(self):

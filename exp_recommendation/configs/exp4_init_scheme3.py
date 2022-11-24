@@ -61,6 +61,4 @@ config.train.n_episodes = 3e4
 # config.train.n_episodes = 4e5
 # config.train.n_episodes = 1e6
 
-config.train.howoften_update = 20
-
 config.train.GAE_term = 'TD-error'

@@ -39,13 +39,6 @@ class recommendation_env(object):
         student_charac = self.student_sampler.sample(self.sample_n_students)
         return student_charac
 
-    def get_rewards(self, name, student_charac, hire_decision):
-        assert name in ['pro', 'hr']
-        rewardmap = self.rewardmap_professor if name == 'pro' else self.rewardmap_HR
-
-        rewards = rewardmap[student_charac, hire_decision]
-        return rewards
-
     def step(self, student_charac, hire_decision):
         student_charac = student_charac.detach()
         hire_decision = hire_decision.detach()

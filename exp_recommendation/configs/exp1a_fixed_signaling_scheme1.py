@@ -43,8 +43,7 @@ config.hr.initialize = False
 config.train = ConfigDict()
 
 # config.train.n_episodes = 3e4
-config.train.n_episodes = 5e4
-
-config.train.howoften_update = 5
+# config.train.n_episodes = 5e4
+config.train.n_episodes = 3e5
 
 config.train.GAE_term = 'TD-error'

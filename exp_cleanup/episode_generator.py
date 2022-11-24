@@ -1,4 +1,4 @@
-from exp_recommendation.transition_class import transition_class
+from exp_recommendation.buffer_class import buffer_class
 from env.recommendation import student_charc_maptoword, professor_action_maptoword, HR_action_maptoword
 
 
@@ -15,7 +15,7 @@ def run_an_episode(env, sender, receiver, ith_episode=None, pls_print=False):
 
         reward_sender, reward_receiver = env.step(obs_sender, [a_int_sender, a_int_receiver])
 
-        transition = transition_class()
+        transition = buffer_class()
         transition.set_values([obs_sender,
                                message, message_prob,
                                a_int_sender, a_prob_sender, a_logprob_sender,

@@ -10,7 +10,7 @@ def set_Env_and_Agents(config):
     print('Setting agents and env.')
 
     env = recommendation.recommendation_env(config.env)
-    pro = pro_class(config)
+    pro = pro_class(config,env.rewardmap_HR)
     hr = hr_class(config)
 
     pro.build_connection(hr)
@@ -21,35 +21,19 @@ def set_Env_and_Agents(config):
 
 def train(config, env, pro, hr):
     print('----------------------------------------')
-    fake_buffer = []
+    fake_buffer = []  # for ploting curves
     print('Start training.')
     i_episode = 0
     while i_episode < config.train.n_episodes:
-        buffer = []
-        for _ in range(config.train.howoften_update):
-            transition = run_an_episode(env, pro, hr, ith_episode=i_episode, pls_print=False)
-            fake_buffer.append(transition.transition_detach)
-            buffer.append(transition)
-
-            # print_params(pro, hr)
-            # validate(pro, hr)
-
-            i_episode += 1
+        buffer, fake_buffer = run_an_episode(env, pro, hr, fake_buffer)
+        i_episode += config.env.sample_n_students
 
         hr.update_ac(buffer)
         pro.update_c(buffer)
 
-        buffer = []
         if not config.pro.fixed_signaling_scheme:
-            for _ in range(config.train.howoften_update):
-                transition = run_an_episode(env, pro, hr, ith_episode=i_episode, pls_print=False)
-                fake_buffer.append(transition.transition_detach)
-                buffer.append(transition)
-
-                # print_params(pro, hr)
-                # validate(pro, hr)
-
-                i_episode += 1
+            buffer, fake_buffer = run_an_episode(env, pro, hr, fake_buffer)
+            i_episode += config.env.sample_n_students
             pro.update_infor_design(buffer)
 
         if not i_episode % 1e3:
