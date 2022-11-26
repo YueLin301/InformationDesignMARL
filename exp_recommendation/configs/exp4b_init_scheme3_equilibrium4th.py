@@ -53,11 +53,6 @@ if config.hr.initialize:
 '''train'''
 config.train = ConfigDict()
 
-# config.train.n_episodes = 3e5
-# config.train.n_episodes = 6e5
 config.train.n_episodes = 1e6
-# config.train.n_episodes = 2e6
-# config.train.n_episodes = 4e6
 
 config.train.GAE_term = 'TD-error'
-# config.train.GAE_term = 'advantage'
