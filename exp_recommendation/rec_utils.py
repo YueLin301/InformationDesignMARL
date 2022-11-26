@@ -14,10 +14,9 @@ def set_net_params(net, params):
     return
 
 
-def int_to_onehot(variable_int):
-    variable_onehot = [0, 0]
-    variable_onehot[variable_int] = 1
-    variable_onehot = torch.tensor(variable_onehot, dtype=torch.double)
+def int_to_onehot(variable_int_list, k):
+    variable_onehot = torch.zeros(len(variable_int_list), k, dtype=torch.double)
+    variable_onehot[range(len(variable_int_list)), variable_int_list] = 1
     return variable_onehot
 
 
@@ -27,7 +26,7 @@ def performance_test_and_print(howmany_episodes, env, pro, hr):
     reward_hr = 0
     social_welfare = 0
     for i in range(howmany_episodes):
-        transition = run_an_episode(env, pro, hr, ith_episode=i, pls_print=False)
+        transition = run_an_episode(env, pro, hr)
 
         i_reward_pro, i_reward_hr = transition.reward_pro, transition.reward_hr
         i_social_welfare = i_reward_pro + i_reward_hr
@@ -78,7 +77,7 @@ def validate_sig_actor(agent):
     print('----------------------------------------')
     for input in range(2):
         if agent.name == 'pro':
-            input_tensor = torch.tensor(input, dtype=torch.double)
+            input_tensor = torch.tensor(input, dtype=torch.long).unsqueeze(dim=0)
             _, phi, _ = agent.send_message(input_tensor)
             print('state:{}, phi:{}'.format(input, phi))
         elif agent.name == 'hr':
@@ -147,7 +146,7 @@ def set_seed(myseed):
 
 
 def plot_create_canvas():
-    fig = plt.figure()  # 画布
+    fig = plt.figure(figsize=(8, 6), dpi=300)  # 画布
     fig.canvas.manager.set_window_title('Recommendation Letter Env.')
 
     reward_pro_curve = fig.add_subplot(4, 2, 1)
@@ -199,40 +198,22 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
              pi_hire_when_notrec_curve, pi_hire_when_rec_curve):
     data = np.array(fake_buffer, dtype=object)
 
-    y_reward_pro = data[:, -2]
-    y_reward_hr = data[:, -1]
+    y_reward_pro = data[-2]
+    y_reward_hr = data[-1]
 
     y_social_welfare = y_reward_pro + y_reward_hr
 
-    x_phi_rec_when_bad = []
-    x_phi_rec_when_good = []
-    y_phi_rec_when_bad = []
-    y_phi_rec_when_good = []
-    for i in range(len(data)):
-        if data[i][0] < 0.5:  # obs_pro
-            x_phi_rec_when_bad.append(i)
-            y_phi_rec_when_bad.append(data[i][2][1])  # message_prob_pro
-        else:
-            x_phi_rec_when_good.append(i)
-            y_phi_rec_when_good.append(data[i][2][1])  # message_prob_pro
-    y_phi_rec_when_bad = np.array(y_phi_rec_when_bad)
-    y_phi_rec_when_good = np.array(y_phi_rec_when_good)
+    x_phi_rec_when_bad = (data[0] == 0).nonzero(as_tuple=False).squeeze(dim=1)  # student == 0
+    x_phi_rec_when_good = (data[0] == 1).nonzero(as_tuple=False).squeeze(dim=1)
+    y_phi_rec_when_bad = data[2][x_phi_rec_when_bad, 1]  # prob of rec
+    y_phi_rec_when_good = data[2][x_phi_rec_when_good, 1]
 
-    x_pi_hire_when_notrec = []
-    x_pi_hire_when_rec = []
-    y_pi_hire_when_notrec = []
-    y_pi_hire_when_rec = []
-    for i in range(len(data)):
-        if data[i][3] < 0.5:  # message_pro
-            x_pi_hire_when_notrec.append(i)
-            y_pi_hire_when_notrec.append(data[i][-4][1])  # a_prob_hr
-        else:
-            x_pi_hire_when_rec.append(i)
-            y_pi_hire_when_rec.append(data[i][-4][1])  # a_prob_hr
-    y_pi_hire_when_notrec = np.array(y_pi_hire_when_notrec)
-    y_pi_hire_when_rec = np.array(y_pi_hire_when_rec)
+    x_pi_hire_when_notrec = (data[3] < 0.5).nonzero(as_tuple=False).squeeze(dim=1)  # message_pro == 0
+    x_pi_hire_when_rec = (data[3] > 0.5).nonzero(as_tuple=False).squeeze(dim=1)
+    y_pi_hire_when_notrec = data[-4][x_pi_hire_when_notrec, 1]  # prob of hire
+    y_pi_hire_when_rec = data[-4][x_pi_hire_when_rec, 1]
 
-    # 光滑，求平均
+    # smoothing
     window_size = 501
     polynomial_order = 3
     y_reward_pro = savgol_filter(y_reward_pro, window_size, polynomial_order)
@@ -260,3 +241,21 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
     # 画一起去看看趋势
     # pi_hire_when_notrec_curve.plot(x_smooth_phi_rec_when_bad, 1 - y_smooth_phi_rec_when_bad)
     # pi_hire_when_rec_curve.plot(x_smooth_phi_rec_when_good, y_smooth_phi_rec_when_good)
+
+
+'''
+def run_episode_pls_print():
+    print('----------------------------------------')
+    if ith_episode or type(ith_episode) is int and ith_episode == 0:
+        print('The ' + str(ith_episode) + ' episode finished.')
+    print('pro_obs:\t', student_charc_maptoword[obs_pro.detach().int()])
+    message_idx = 1 if message_pro.detach() > 0.5 else 0
+    print('message:\t', professor_action_maptoword[message_idx])
+    print('mess_OH:\t', message_onehot_pro.tolist())
+    print('pro_prob:\t', message_prob_pro.detach().tolist())
+    action_idx = 1 if a_int_hr.detach() > 0.5 else 0
+    print('hr_action:\t', HR_action_maptoword[action_idx])
+    print('hr_prob:\t', a_prob_hr.detach().tolist())
+    print('pro_reward:\t', reward_pro)
+    print('hr_reward:\t', reward_hr)
+'''

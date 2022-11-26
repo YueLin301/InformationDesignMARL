@@ -2,20 +2,41 @@ import torch
 from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_layers
 
 
+def check_obedience_constraint(sigma, pi, critic_q_hr):
+    a = torch.tensor([[1, 0], [0, 1]], dtype=torch.double)
+    sigmas = torch.cat([sigma.detach().unsqueeze(dim=0), sigma.detach().unsqueeze(dim=0)])
+    sigmas_and_as = torch.cat([sigmas, a], dim=1)
+
+    qs = critic_q_hr(sigmas_and_as).detach()
+
+    left = torch.sum(sigma * qs)
+    right = torch.sum(pi * qs)
+    flag = True if left >= right else False
+    return flag
+
+
 class pro_class():
     def __init__(self, config, rewardmap_HR):
         self.name = 'pro'
         self.config = config
         self.rewardmap_HR = rewardmap_HR
 
+        self.recommended_policy_scale = 10
+        scale = self.recommended_policy_scale
+        prob1 = torch.tensor(list(range(scale + 1))) / scale
+        prob2 = 1 - prob1
+        self.recommended_policy_table = torch.cat([prob1.unsqueeze(dim=1), prob2.unsqueeze(dim=1)], dim=1)
+
         # G(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
             torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
             torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
         )
+
+        # input: one hot; output: recommended policy prob distribution
+        # sigma.shape == torch.size([2])
         self.signaling_net = torch.nn.Sequential(
-            # input: one hot; output: signaling 0/1 prob. distribution
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Linear(in_features=2, out_features=scale + 1, bias=False, dtype=torch.double),
             torch.nn.Softmax(dim=-1)
         )
 
@@ -27,7 +48,7 @@ class pro_class():
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.pro.lr_signal)
 
-        self.temperature = 1
+        self.temperature = 0.001
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
         self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
@@ -65,40 +86,27 @@ class pro_class():
         g = - torch.log(-torch.log(u))
         return g
 
-    def my_gumbel_softmax(self, phi):
-        g = self.gumbel_sample(dim=2)
-        logits_forGumbel = (torch.log(phi) + g) / self.temperature
-        message_onehot = self.softmax_forGumble(logits_forGumbel)  # onehot
-        return message_onehot
-
     def send_message(self, obs_list):
         obs_list = [obs_list] if isinstance(obs_list, int) else obs_list
+
         if not self.config.pro.fixed_signaling_scheme:
             obs_onehot = int_to_onehot(obs_list, k=2)
             phi_current = self.signaling_net(obs_onehot)
         else:
             phi_current = self.config.pro.signaling_scheme[obs_list]
 
-        logits = torch.log(phi_current)
-        message_onehot = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
+        g = self.gumbel_sample(dim=self.recommended_policy_scale + 1)
+        logits_forGumbel = (torch.log(phi_current) + g) / self.temperature
+        message_onehot = self.softmax_forGumble(logits_forGumbel)  # onehot
         message = torch.einsum('i,ji->j', self.message_table, message_onehot)
 
-        temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
-        temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-
-        temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
-        # temp3 = torch.autograd.grad(message_onehot[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
-        # temp4 = torch.autograd.grad(message_onehot[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-        temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
-
         return message_onehot, phi_current, message
-        # return
 
     def update_infor_design(self, buffer):
         obs = buffer.obs_pro
         obs_onehot = int_to_onehot(obs, k=2)
         a = buffer.a_int_hr
-        # r_hr = buffer.reward_hr
+        r_hr = buffer.reward_hr
         sigma = buffer.message_pro
         sigma_int = torch.round(sigma).long()
         phi_sigma = buffer.message_prob_pro[range(len(sigma)), sigma_int]
@@ -127,45 +135,33 @@ class pro_class():
         G_times_gradeta_log_pi_flatten = flatten_layers(G_times_gradeta_log_pi)
 
         gradeta_flatten = G_times_gradeta_log_phi_flatten \
-                          + G_times_gradeta_log_pi_flatten *  self.config.pro.coe_for_recovery_fromgumbel  # This is for recovering scale from gumbel-softmax process
+                          + G_times_gradeta_log_pi_flatten * self.temperature  # This is for recovering scale from gumbel-softmax process
 
-        ''' BCE Obedience Constraint (Lagrangian) '''
-        pi = buffer.a_prob_hr
-        # temp = torch.autograd.grad(torch.mean(pi), list(self.signaling_net.parameters()),retain_graph=True)
-        sigma_onehot = buffer.message_onehot_pro
-        sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
-        _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
+        ''' BCE Obedience Constraint '''
+        a_couterfactual = 1 - a
+        r_couterfactual = self.rewardmap_HR[obs, a_couterfactual]
 
-        a1 = torch.tensor([1, 0], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
-        a2 = torch.tensor([0, 1], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
-        sigma_and_a1 = torch.cat([sigma_onehot, a1], dim=1)
-        sigma_and_a2 = torch.cat([sigma_onehot, a2], dim=1)
+        delta_r = (r_hr - r_couterfactual)
+        constraint_left_all = phi_sigma * pi_at * delta_r
+        constraint_left = torch.mean(constraint_left_all)
 
-        q_sigma_and_a1 = self.hr.critic(sigma_and_a1)
-        q_sigma_and_a2 = self.hr.critic(sigma_and_a2)
-        q_sigma_and_a = torch.cat([q_sigma_and_a1, q_sigma_and_a2], dim=1)
+        if constraint_left > self.config.pro.constraint_right:
+            constraint_term_1st = torch.mean(
+                phi_sigma * pi_at.detach() * delta_r.detach())  # grad_eta of phi_sigma
+            constraint_term_2nd = torch.mean(
+                phi_sigma.detach() * pi_at * delta_r.detach())  # grad_eta of pi_at
 
-        # constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * q_sigma_and_a, dim=1))
-        # if constraint_left > self.config.pro.constraint_right:
-        constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * q_sigma_and_a.detach(), dim=1))
-        constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * q_sigma_and_a.detach(), dim=1))
-        constraint_term_3rd = torch.mean(phi_sigma.detach() * torch.sum(pi.detach() * q_sigma_and_a, dim=1))
+            gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
+                                                              list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
+                                                              list(self.signaling_net.parameters()), retain_graph=True)
 
-        gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term_3rd = torch.autograd.grad(constraint_term_3rd,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st)
+            gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd)
 
-        gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
-        gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd, 0) * self.config.pro.coe_for_recovery_fromgumbel
-        gradeta_constraint_term_3rd_flatten = flatten_layers(gradeta_constraint_term_3rd, 0) * self.config.pro.coe_for_recovery_fromgumbel
-
-        gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
-                                     + gradeta_constraint_term_2nd_flatten \
-                                     + gradeta_constraint_term_3rd_flatten
-        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+            gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
+                                         + gradeta_constraint_term_2nd_flatten * self.temperature
+            gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
 
         # 返回为原来梯度的样子
         gradeta = []
@@ -194,10 +190,13 @@ class hr_class():
         self.name = 'hr'
         self.config = config
 
+        # Q(sigma, a)
         self.critic = torch.nn.Sequential(
             torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
             torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
         )
+
+        # pi(sigma, a)
         self.actor = torch.nn.Sequential(
             torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
             torch.nn.Softmax(dim=-1)
@@ -216,7 +215,10 @@ class hr_class():
 
     def choose_action(self, message):
         pi = self.actor(message)
-        distribution = torch.distributions.Categorical(pi)
+        if not check_obedience_constraint(message, pi, self.critic):
+            distribution = torch.distributions.Categorical(message)
+        else:
+            distribution = torch.distributions.Categorical(pi)
         a = distribution.sample([1]).squeeze(dim=0)
         return a, pi, distribution.log_prob(a).squeeze(dim=0),
 

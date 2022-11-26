@@ -33,8 +33,7 @@ config.hr.fixed_policy = False
 config.hr.lr_critic = 1e-3
 config.hr.lr_actor = 3e-3
 
-config.hr.epsilon_start = 0.5  # epsilon_greedy
-config.hr.epsilon_decay = 1 - 1e-3  # after running an episode: epsilon <- epsilon * epsilon_decay
+config.hr.entropy_coe = 1e-3
 
 config.hr.initialize = False
 
@@ -42,9 +41,6 @@ config.hr.initialize = False
 '''train'''
 config.train = ConfigDict()
 
-# config.train.n_episodes = 3e4
-config.train.n_episodes = 5e4
-
-config.train.howoften_update = 5
+config.train.n_episodes = 3e5
 
 config.train.GAE_term = 'TD-error'

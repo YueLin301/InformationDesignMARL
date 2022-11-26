@@ -1,35 +1,27 @@
-from exp_recommendation.transition_class import transition_class
+import torch
+from exp_recommendation.buffer_class import buffer_class
 from env.recommendation import student_charc_maptoword, professor_action_maptoword, HR_action_maptoword
 
 
-def run_an_episode(env, pro, hr, ith_episode=None, pls_print=False):
-    obs_pro = env.reset().double()  # obs_pro == student_charac
-    message_onehot_pro, message_prob_pro, message_pro = pro.send_message(obs_pro, )  # message_pro == letter
-    a_int_hr, a_prob_hr, a_logprob_hr = hr.choose_action(message_onehot_pro,
-                                                         using_epsilon=True)  # a_int_hr == hire_decision
+def run_an_episode(env, pro, hr, fake_buffer=None):
+    obs_pro = env.reset()
+    message_onehot_pro, message_prob_pro, message_pro = pro.send_message(obs_pro)
+    a_int_hr, a_prob_hr, a_logprob_hr = hr.choose_action(message_onehot_pro)
     reward_pro, reward_hr = env.step(obs_pro, a_int_hr)
 
-    transition = transition_class()
-    transition.set_values([obs_pro,
-                           message_onehot_pro, message_prob_pro, message_pro,
-                           a_int_hr, a_prob_hr, a_logprob_hr,
-                           reward_pro, reward_hr])
+    buffer = buffer_class()
+    buffer.set_values([obs_pro,
+                       message_onehot_pro, message_prob_pro, message_pro,
+                       a_int_hr, a_prob_hr, a_logprob_hr,
+                       reward_pro, reward_hr])
 
-    hr.epsilon = hr.epsilon * hr.config.hr.epsilon_decay
+    # torch.cat for fake_buffer
+    if not len(fake_buffer):
+        fake_buffer = buffer.values
+        for idx in range(len(fake_buffer)):
+            fake_buffer[idx] = fake_buffer[idx].detach()
+    else:
+        for idx in range(len(fake_buffer)):
+            fake_buffer[idx] = torch.cat([fake_buffer[idx], buffer.values[idx].detach()])
 
-    if pls_print:
-        print('----------------------------------------')
-        if ith_episode or type(ith_episode) is int and ith_episode == 0:
-            print('The ' + str(ith_episode) + ' episode finished.')
-        print('pro_obs:\t', student_charc_maptoword[obs_pro.detach().int()])
-        message_idx = 1 if message_pro.detach() > 0.5 else 0
-        print('message:\t', professor_action_maptoword[message_idx])
-        print('mess_OH:\t', message_onehot_pro.tolist())
-        print('pro_prob:\t', message_prob_pro.detach().tolist())
-        action_idx = 1 if a_int_hr.detach() > 0.5 else 0
-        print('hr_action:\t', HR_action_maptoword[action_idx])
-        print('hr_prob:\t', a_prob_hr.detach().tolist())
-        print('pro_reward:\t', reward_pro)
-        print('hr_reward:\t', reward_hr)
-
-    return transition
+    return buffer, fake_buffer

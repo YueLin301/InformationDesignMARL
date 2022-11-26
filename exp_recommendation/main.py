@@ -2,12 +2,17 @@ import matplotlib.pyplot as plt
 from exp_recommendation.rec_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
 from exp_recommendation.train import train, set_Env_and_Agents
 
-from exp_recommendation.configs.exp4_init_scheme3 import config
+# from exp_recommendation.configs.exp1a_fixed_signaling_scheme1 import config
+# from exp_recommendation.configs.exp1b_fixed_signaling_scheme2 import config
+# from exp_recommendation.configs.exp1c_fixed_signaling_scheme3 import config
+# from exp_recommendation.configs.exp2_fixed_receiver_policy import config
+# from exp_recommendation.configs.exp3_init_scheme3_no_constraint  import config
+from exp_recommendation.configs.exp4_init_scheme3  import config
 
 
-def main(config):
+def main(config, seeds_num=10):
     canvas = plot_create_canvas()
-    for myseed in range(1):
+    for myseed in range(seeds_num):
         set_seed(myseed)
 
         env, pro, hr = set_Env_and_Agents(config)
@@ -27,4 +32,5 @@ def main(config):
 
 
 if __name__ == '__main__':
-    main(config)
+    main(config, seeds_num=1)
+    # main(config, seeds_num=10)
