@@ -36,7 +36,7 @@ def train(config, env, pro, hr):
             i_episode += config.env.sample_n_students
             pro.update_infor_design(buffer)
 
-        if not i_episode % 1e3:
+        if not i_episode % 1e4:
             completion_rate = i_episode / config.train.n_episodes
             print('Task completion:\t{:.1%}'.format(completion_rate))
 

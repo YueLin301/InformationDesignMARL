@@ -29,6 +29,8 @@ config.hr.fixed_policy = True
 config.hr.lr_critic = 0
 config.hr.lr_actor = 0
 
+config.hr.entropy_coe = 0
+
 config.hr.initialize = True
 if config.hr.initialize:
     # policy of hr is initialized to be obedient

@@ -219,12 +219,12 @@ def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
     y_reward_pro = savgol_filter(y_reward_pro, window_size, polynomial_order)
     y_reward_hr = savgol_filter(y_reward_hr, window_size, 3)
     y_social_welfare = savgol_filter(y_social_welfare, window_size, polynomial_order)
-    # window_size2 = 41
-    # polynomial_order2 = 2
-    # y_phi_rec_when_bad = savgol_filter(y_phi_rec_when_bad, window_size2, polynomial_order2)
-    # y_phi_rec_when_good = savgol_filter(y_phi_rec_when_good, window_size2, polynomial_order2)
-    # y_pi_hire_when_notrec = savgol_filter(y_pi_hire_when_notrec, window_size2, polynomial_order2)
-    # y_pi_hire_when_rec = savgol_filter(y_pi_hire_when_rec, window_size2, polynomial_order2)
+    window_size2 = 41
+    polynomial_order2 = 2
+    y_phi_rec_when_bad = savgol_filter(y_phi_rec_when_bad, window_size2, polynomial_order2)
+    y_phi_rec_when_good = savgol_filter(y_phi_rec_when_good, window_size2, polynomial_order2)
+    y_pi_hire_when_notrec = savgol_filter(y_pi_hire_when_notrec, window_size2, polynomial_order2)
+    y_pi_hire_when_rec = savgol_filter(y_pi_hire_when_rec, window_size2, polynomial_order2)
 
     reward_pro_curve.plot(y_reward_pro)
     reward_hr_curve.plot(y_reward_hr)
