@@ -100,12 +100,12 @@ class pro_class():
         message_onehot = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
         message = torch.einsum('i,ji->j', self.message_table, message_onehot)
 
-        temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
-        temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-        temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
+        # temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
         # temp3 = torch.autograd.grad(message_onehot[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
         # temp4 = torch.autograd.grad(message_onehot[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-        temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
 
         return message_onehot, phi_current, message
 
