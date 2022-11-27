@@ -10,7 +10,9 @@ from exp_recommendation.train import train, set_Env_and_Agents
 # from exp_recommendation.configs.exp4_init_scheme3  import config
 # from exp_recommendation.configs.exp4a_init_scheme3_equilibrium3rd  import config
 # from exp_recommendation.configs.exp4b_init_scheme3_equilibrium4th  import config
-from exp_recommendation.configs.exp5_init_receiver  import config
+# from exp_recommendation.configs.exp5a_init_receiver_lambda0  import config
+# from exp_recommendation.configs.exp5b_init_receiver_lambda2  import config
+from exp_recommendation.configs.exp5d_init_receiver_lambda10  import config
 
 
 def main(config, seeds_num=10):
