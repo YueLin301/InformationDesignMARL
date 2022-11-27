@@ -7,7 +7,10 @@ from exp_recommendation.train import train, set_Env_and_Agents
 # from exp_recommendation.configs.exp1c_fixed_signaling_scheme3 import config
 # from exp_recommendation.configs.exp2_fixed_receiver_policy import config
 # from exp_recommendation.configs.exp3_init_scheme3_no_constraint  import config
-from exp_recommendation.configs.exp4_init_scheme3  import config
+# from exp_recommendation.configs.exp4_init_scheme3  import config
+# from exp_recommendation.configs.exp4a_init_scheme3_equilibrium3rd  import config
+# from exp_recommendation.configs.exp4b_init_scheme3_equilibrium4th  import config
+from exp_recommendation.configs.exp5_init_receiver  import config
 
 
 def main(config, seeds_num=10):

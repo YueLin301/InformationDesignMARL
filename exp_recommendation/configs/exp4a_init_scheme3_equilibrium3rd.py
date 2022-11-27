@@ -15,7 +15,7 @@ config.pro.fixed_signaling_scheme = False
 config.pro.lr_pro_critic = 1.5e-3
 config.pro.lr_signal = 1.5e-3
 
-config.pro.coe_for_recovery_fromgumbel = 2
+config.pro.coe_for_recovery_fromgumbel = 1.7
 
 config.pro.constraint_right = 0
 config.pro.sender_objective_alpha = 100  # Lagrangian lambda
@@ -23,10 +23,11 @@ config.pro.sender_objective_alpha = 100  # Lagrangian lambda
 config.pro.initialize = True
 if config.pro.initialize:
     # signaling scheme of pro is initialized to be optimal
-    config.pro.signaling_params = torch.tensor([[10, -10],
-                                                [10, 10]], dtype=torch.double).unsqueeze(dim=0)
+    config.pro.signaling_params = torch.tensor([[5, -5],
+                                                [5, 5]], dtype=torch.double).unsqueeze(dim=0)
 
 # ========================================
+
 '''hr'''
 config.hr = ConfigDict()
 
