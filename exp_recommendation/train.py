@@ -2,15 +2,13 @@ from env import recommendation
 from exp_recommendation.agent_class import pro_class, hr_class
 from exp_recommendation.episode_generator import run_an_episode
 
-from exp_recommendation.rec_utils import print_params, validate
-
 
 def set_Env_and_Agents(config):
     print('----------------------------------------')
     print('Setting agents and env.')
 
     env = recommendation.recommendation_env(config.env)
-    pro = pro_class(config,env.rewardmap_HR)
+    pro = pro_class(config)
     hr = hr_class(config)
 
     pro.build_connection(hr)

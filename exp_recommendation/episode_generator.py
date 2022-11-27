@@ -1,6 +1,5 @@
 import torch
 from exp_recommendation.buffer_class import buffer_class
-from env.recommendation import student_charc_maptoword, professor_action_maptoword, HR_action_maptoword
 
 
 def run_an_episode(env, pro, hr, fake_buffer=None):

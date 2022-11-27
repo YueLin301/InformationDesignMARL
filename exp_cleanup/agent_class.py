@@ -7,8 +7,13 @@ class sender_class():
         self.name = 'sender'
         self.config = config
 
-        # q(s,a), rather than q(s,sigma)
+        # G^i(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
+        )
+        # G^j(s,a), rather than Q(sigma,a)
+        self.critic_forhr = torch.nn.Sequential(
             torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
             torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
         )
@@ -19,41 +24,32 @@ class sender_class():
         )
 
         if config.pro.initialize:
-            # set_net_params(self.critic, params=config.pro.critic_pro_params)
             set_net_params(self.signaling_net, params=config.pro.signaling_params)
 
-        self.critic_loss_criterion = torch.nn.MSELoss()
+        self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
+        self.critic_optimizer_forhr = torch.optim.Adam(self.critic_forhr.parameters(), config.pro.lr_pro_critic)
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.pro.lr_signal)
 
-        self.temperature = 0.1
+        self.temperature = 1
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
         self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
-    def build_connection(self, receiver):
-        self.receiver = receiver
+    def build_connection(self, hr):
+        self.hr = hr
 
     def update_c(self, buffer):
-        critic_loss = 0
-        for transition in buffer:
-            obs = transition.obs_pro
-            obs_int = 0 if obs < 0.5 else 1
-            obs_onehot = int_to_onehot(obs_int)
-            r = transition.reward_sender  # reward_sender
+        obs = buffer.obs_pro
+        obs_onehot = int_to_onehot(obs, k=2)
+        a_int_hr = buffer.a_int_hr
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
 
-            a_int_hr = transition.a_int_hr
-            a_onehot_hr = int_to_onehot(a_int_hr)
-
-            obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr])
-
-            q = self.critic(obs_and_a_onehot).squeeze()
-            q_next = 0
-            td_target = r + q_next
-            td_target = torch.tensor(td_target, dtype=torch.double)  # 没梯度的，没事
-
-            critic_loss_i = self.critic_loss_criterion(td_target, q)  # 没梯度的，没事
-            critic_loss = critic_loss + critic_loss_i
-        critic_loss = critic_loss / len(buffer)
+        r = buffer.reward_pro  # reward_pro
+        G = self.critic(obs_and_a_onehot).squeeze()
+        G_next = 0
+        td_target = r + G_next
+        critic_loss = self.critic_loss_criterion(td_target, G)
 
         self.critic_optimizer.zero_grad()
         critic_grad = torch.autograd.grad(critic_loss, list(self.critic.parameters()), retain_graph=True)
@@ -63,6 +59,21 @@ class sender_class():
             critic_params[layer].grad.data.clamp_(-1, 1)
         self.critic_optimizer.step()
 
+        r_hr = buffer.reward_hr
+        Gj = self.critic_forhr(obs_and_a_onehot).squeeze()
+        Gj_next = 0
+        td_target_j = r_hr + Gj_next
+        critic_loss_forhr = self.critic_loss_criterion(td_target_j, Gj)
+
+        self.critic_optimizer_forhr.zero_grad()
+        critic_grad_forhr = torch.autograd.grad(critic_loss_forhr, list(self.critic_forhr.parameters()),
+                                                retain_graph=True)
+        critic_params = list(self.critic_forhr.parameters())
+        for layer in range(len(critic_params)):
+            critic_params[layer].grad = critic_grad_forhr[layer]
+            critic_params[layer].grad.data.clamp_(-1, 1)
+        self.critic_optimizer_forhr.step()
+
         return
 
     def gumbel_sample(self, dim=2):
@@ -70,68 +81,100 @@ class sender_class():
         g = - torch.log(-torch.log(u))
         return g
 
-    def send_message(self, obs):
-        obs_int = 0 if obs < 0.5 else 1
-        if not self.config.sender.fixed_signaling_scheme:
-            obs_onehot = int_to_onehot(obs_int)
+    def my_gumbel_softmax(self, phi):
+        g = self.gumbel_sample(dim=2)
+        logits_forGumbel = (torch.log(phi) + g) / self.temperature
+        message_onehot = self.softmax_forGumble(logits_forGumbel)  # onehot
+        return message_onehot
+
+    def send_message(self, obs_list):
+        obs_list = [obs_list] if isinstance(obs_list, int) else obs_list
+        if not self.config.pro.fixed_signaling_scheme:
+            obs_onehot = int_to_onehot(obs_list, k=2)
             phi_current = self.signaling_net(obs_onehot)
         else:
-            phi_current = self.config.sender.signaling_scheme[obs_int]
+            phi_current = self.config.pro.signaling_scheme[obs_list]
 
-        g = self.gumbel_sample(dim=2)
-        logits_forGumbel = (torch.log(phi_current) + g) / self.temperature
-        message_onehot = self.softmax_forGumble(logits_forGumbel)  # one hot
-        message = torch.einsum('i,i->', self.message_table, message_onehot).unsqueeze(dim=0)
+        logits = torch.log(phi_current)
+        message_onehot = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
+        message = torch.einsum('i,ji->j', self.message_table, message_onehot)
+
+        # # for tuning config.pro.coe_for_recovery_fromgumbel
+        # temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
+        # temp3 = torch.autograd.grad(message_onehot[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp4 = torch.autograd.grad(message_onehot[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
 
         return message_onehot, phi_current, message
 
     def update_infor_design(self, buffer):
-        constraint_left = 0
-        gradeta_flatten = 0
-        for transition in buffer:
-            obs = transition.obs_pro
-            obs_int = 0 if obs < 0.5 else 1
-            obs_onehot = int_to_onehot(obs_int)
-            a = transition.a_int_hr  # a_int_hr
-            r_hr = transition.reward_hr  # reward_hr
-            sigma = transition.message_pro  # message_pro
-            phi_sigma = transition.message_prob_pro[int(sigma)]  # message_prob_pro[int(sigma)]
-            pi_at = transition.a_prob_hr[a]  # a_prob_hr[at]
+        obs = buffer.obs_pro
+        obs_onehot = int_to_onehot(obs, k=2)
+        a = buffer.a_int_hr
+        sigma = buffer.message_pro
+        sigma_int = torch.round(sigma).long()
+        phi_sigma = buffer.message_prob_pro[range(len(sigma)), sigma_int]
+        pi_at = buffer.a_prob_hr[range(len(sigma)), a]
 
-            gradeta_phi_sigma = torch.autograd.grad(phi_sigma, list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_phi_sigma_flatten = flatten_layers(gradeta_phi_sigma, dim=1)  # (n, 1)
+        ''' SG (Signaling Gradient) '''
+        a_int_hr = buffer.a_int_hr
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
+        G = self.critic(obs_and_a_onehot).squeeze()
 
-            gradeta_pi_at = torch.autograd.grad(pi_at, list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_pi_at_flatten = flatten_layers(gradeta_pi_at, dim=1)
+        log_phi_sigma = torch.log(phi_sigma)
+        log_pi_at = torch.log(pi_at)
 
-            a_int_hr = transition.a_int_hr
-            a_onehot_hr = int_to_onehot(a_int_hr)
-            obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr])
-            q = self.critic(obs_and_a_onehot).squeeze()
+        term_1st = torch.mean(G.detach() * log_phi_sigma)
+        term_2nd = torch.mean(G.detach() * log_pi_at)
 
-            gradeta_flatten_i = q * (
-                    pi_at * gradeta_phi_sigma_flatten * self.temperature
-                    + phi_sigma * gradeta_pi_at_flatten
-            )
-            gradeta_flatten = gradeta_flatten + gradeta_flatten_i
-
-            # Constraints, Lagrangian
-            # 采样更新state，其他照常求梯度
-            a_couterfactual = 1 - a
-            r_couterfactual = self.config.env.rewardmap_HR[obs_int][a_couterfactual]
-
-            constraint_left_i = phi_sigma * pi_at * (r_hr - r_couterfactual)
-            constraint_left = constraint_left + constraint_left_i
-        constraint_left = constraint_left / len(buffer)
-        gradeta_flatten = gradeta_flatten / len(buffer)
-
-        if constraint_left > self.config.pro.constraint_right:
-            gradeta_constraint = torch.autograd.grad(constraint_left, list(self.signaling_net.parameters()),
+        G_times_gradeta_log_phi = torch.autograd.grad(term_1st, list(self.signaling_net.parameters()),
+                                                      retain_graph=True)
+        G_times_gradeta_log_pi = torch.autograd.grad(term_2nd, list(self.signaling_net.parameters()),
                                                      retain_graph=True)
-            gradeta_constraint_flatten = flatten_layers(gradeta_constraint, dim=1)
-            gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
 
-        # 返回为原来梯度的样子
+        G_times_gradeta_log_phi_flatten = flatten_layers(G_times_gradeta_log_phi)
+        G_times_gradeta_log_pi_flatten = flatten_layers(G_times_gradeta_log_pi)
+
+        gradeta_flatten = G_times_gradeta_log_phi_flatten \
+                          + G_times_gradeta_log_pi_flatten * self.config.pro.coe_for_recovery_fromgumbel  # This is for recovering scale from gumbel-softmax process
+
+        ''' BCE Obedience Constraint (Lagrangian) '''
+        pi = buffer.a_prob_hr
+        sigma_onehot = buffer.message_onehot_pro
+        sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
+        _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
+
+        a1 = torch.tensor([1, 0], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
+        a2 = torch.tensor([0, 1], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
+        obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
+        obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)
+
+        Gj_obs_and_a1 = self.critic_forhr(obs_and_a1)
+        Gj_obs_and_a2 = self.critic_forhr(obs_and_a2)
+        Gj_obs_and_a = torch.cat([Gj_obs_and_a1, Gj_obs_and_a2], dim=1)
+
+        # constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
+        # if constraint_left < self.config.pro.constraint_right:
+        constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * Gj_obs_and_a.detach(), dim=1))
+        constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * Gj_obs_and_a.detach(), dim=1))
+
+        gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
+                                                          list(self.signaling_net.parameters()), retain_graph=True)
+        gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
+                                                          list(self.signaling_net.parameters()), retain_graph=True)
+
+        gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
+        gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd,
+                                                             0) * self.config.pro.coe_for_recovery_fromgumbel
+
+        gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
+                                     + gradeta_constraint_term_2nd_flatten
+        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+
+        # reform to be in original shape
         gradeta = []
         idx = 0
         for layerl in self.signaling_net.parameters():
@@ -146,7 +189,7 @@ class sender_class():
         self.signaling_optimizer.zero_grad()
         params = list(self.signaling_net.parameters())
         for i in range(len(list(self.signaling_net.parameters()))):
-            params[i].grad = - gradeta[i]  # 梯度上升
+            params[i].grad = - gradeta[i]  # gradient ascent
             params[i].grad.data.clamp_(-1, 1)
         self.signaling_optimizer.step()
 
@@ -171,68 +214,57 @@ class receiver_class():
             # set_net_params(self.critic, params=config.hr.critic_params)
             set_net_params(self.actor, params=config.hr.actor_params)
 
-        self.critic_loss_criterion = torch.nn.MSELoss()
+        self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.hr.lr_critic)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.hr.lr_actor)
 
-        self.epsilon = config.hr.epsilon_start
+    def build_connection(self, pro):
+        self.pro = pro
 
-    def build_connection(self, sender):
-        self.sender = sender
-
-    def choose_action(self, message, using_epsilon=False):
+    def choose_action(self, message):
         pi = self.actor(message)
-        if using_epsilon:
-            pi = (1 - self.epsilon) * pi + self.epsilon / 2
         distribution = torch.distributions.Categorical(pi)
-        a = distribution.sample([1])
-        return a, pi, distribution.log_prob(a),
+        a = distribution.sample([1]).squeeze(dim=0)
+        return a, pi, distribution.log_prob(a).squeeze(dim=0),
 
     def calculate_v(self, message, pi):
         v = 0
-        for a_idx in range(len(pi)):
-            pi_a_i = pi[a_idx].detach().unsqueeze(dim=0)
-            a_onehot = int_to_onehot(a_idx)
-            message_and_a_i = torch.cat([message, a_onehot])
-            q_i = self.critic(message_and_a_i)
+        n_samples = message.shape[0] if len(message.shape) > 1 else 1
+        for a_idx in range(2):
+            pi_a_i = pi[range(len(pi)), a_idx].detach()
+            a_onehot = int_to_onehot([a_idx] * n_samples, k=2)
+            message_and_a_i = torch.cat([message, a_onehot], dim=1)
+            q_i = self.critic(message_and_a_i).squeeze(dim=1)
             v = v + pi_a_i * q_i
         return v
 
     def update_ac(self, buffer):
-        critic_loss = 0
-        actor_obj = 0
-        for transition in buffer:
-            a_onehot_hr = int_to_onehot(transition.a_int_hr)
-            message_and_a = torch.cat([transition.message_onehot_pro, a_onehot_hr])
+        a_onehot_hr = int_to_onehot(buffer.a_int_hr, k=2)
+        message_and_a = torch.cat([buffer.message_onehot_pro, a_onehot_hr], dim=1)
 
-            q = self.critic(message_and_a).squeeze()
-            q_next = 0
+        q = self.critic(message_and_a).squeeze()
+        q_next = 0
+        td_target = buffer.reward_hr + q_next
+        critic_loss = self.critic_loss_criterion(td_target, q)
 
-            td_target = transition.reward_hr + q_next
-            td_target = torch.tensor(td_target, dtype=torch.double)  # 没梯度的，没事
+        v = self.calculate_v(buffer.message_onehot_pro, buffer.a_prob_hr)
+        if self.config.train.GAE_term == 'TD-error':
+            td_error = td_target - v
+            actor_obj = td_error * buffer.a_logprob_hr
+        elif self.config.train.GAE_term == 'advantage':
 
-            critic_loss_i = self.critic_loss_criterion(td_target, q)  # 没梯度的，没事
-            critic_loss = critic_loss + critic_loss_i
+            advantage = q - v
+            actor_obj = advantage * buffer.a_logprob_hr
+        else:
+            raise NotImplementedError
+        actor_obj_mean = torch.mean(actor_obj)
 
-            if self.config.train.GAE_term == 'TD-error':
-                td_error = td_target - q
-                actor_obj_i = td_error * transition.a_logprob_hr
-            elif self.config.train.GAE_term == 'advantage':
-                v = self.calculate_v(transition.message_onehot_pro, transition.a_prob_hr)
-                advantage = q - v
-                actor_obj_i = advantage * transition.a_logprob_hr
-            else:
-                raise NotImplementedError
+        entropy = -torch.sum(buffer.a_prob_hr * torch.log(buffer.a_prob_hr))
 
-            actor_obj = actor_obj + actor_obj_i
-
-        critic_loss = critic_loss / len(buffer)
-        actor_obj = actor_obj / len(buffer)
-
-        '''更新'''
         if not self.config.hr.fixed_policy:
             self.actor_optimizer.zero_grad()
-            actor_grad = torch.autograd.grad(actor_obj, list(self.actor.parameters()), retain_graph=True)
+            actor_grad = torch.autograd.grad(actor_obj_mean + self.config.hr.entropy_coe * entropy,
+                                             list(self.actor.parameters()), retain_graph=True)
             actor_params = list(self.actor.parameters())
             for layer in range(len(actor_params)):
                 actor_params[layer].grad = - actor_grad[layer]
