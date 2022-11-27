@@ -8,8 +8,13 @@ class pro_class():
         self.config = config
         self.rewardmap_HR = rewardmap_HR
 
-        # G(s,a), rather than Q(s,sigma)
+        # G^i(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
+        )
+        # G^j(s,a), rather than Q(sigma,a)
+        self.critic_forhr = torch.nn.Sequential(
             torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
             torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
         )
@@ -25,6 +30,7 @@ class pro_class():
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
+        self.critic_optimizer_forhr = torch.optim.Adam(self.critic_forhr.parameters(), config.pro.lr_pro_critic)
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.pro.lr_signal)
 
         self.temperature = 1
@@ -37,17 +43,14 @@ class pro_class():
     def update_c(self, buffer):
         obs = buffer.obs_pro
         obs_onehot = int_to_onehot(obs, k=2)
-        r = buffer.reward_pro  # reward_pro
-
         a_int_hr = buffer.a_int_hr
         a_onehot_hr = int_to_onehot(a_int_hr, k=2)
-
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
 
+        r = buffer.reward_pro  # reward_pro
         G = self.critic(obs_and_a_onehot).squeeze()
-        q_next = 0
-        td_target = r + q_next
-
+        G_next = 0
+        td_target = r + G_next
         critic_loss = self.critic_loss_criterion(td_target, G)
 
         self.critic_optimizer.zero_grad()
@@ -57,6 +60,20 @@ class pro_class():
             critic_params[layer].grad = critic_grad[layer]
             critic_params[layer].grad.data.clamp_(-1, 1)
         self.critic_optimizer.step()
+
+        r_hr = buffer.reward_hr
+        G_j = self.critic_forhr(obs_and_a_onehot).squeeze()
+        G_j_next = 0
+        td_target_j = r_hr + G_j_next
+        critic_loss_forhr = self.critic_loss_criterion(td_target_j, G_j)
+
+        self.critic_optimizer_forhr.zero_grad()
+        critic_grad_forhr = torch.autograd.grad(critic_loss_forhr, list(self.critic_forhr.parameters()), retain_graph=True)
+        critic_params = list(self.critic_forhr.parameters())
+        for layer in range(len(critic_params)):
+            critic_params[layer].grad = critic_grad_forhr[layer]
+            critic_params[layer].grad.data.clamp_(-1, 1)
+        self.critic_optimizer_forhr.step()
 
         return
 
@@ -85,14 +102,12 @@ class pro_class():
 
         temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
         temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-
         temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
         # temp3 = torch.autograd.grad(message_onehot[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
         # temp4 = torch.autograd.grad(message_onehot[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
         temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
 
         return message_onehot, phi_current, message
-        # return
 
     def update_infor_design(self, buffer):
         obs = buffer.obs_pro
@@ -127,7 +142,7 @@ class pro_class():
         G_times_gradeta_log_pi_flatten = flatten_layers(G_times_gradeta_log_pi)
 
         gradeta_flatten = G_times_gradeta_log_phi_flatten \
-                          + G_times_gradeta_log_pi_flatten *  self.config.pro.coe_for_recovery_fromgumbel  # This is for recovering scale from gumbel-softmax process
+                          + G_times_gradeta_log_pi_flatten * self.config.pro.coe_for_recovery_fromgumbel  # This is for recovering scale from gumbel-softmax process
 
         ''' BCE Obedience Constraint (Lagrangian) '''
         pi = buffer.a_prob_hr
@@ -138,34 +153,36 @@ class pro_class():
 
         a1 = torch.tensor([1, 0], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
         a2 = torch.tensor([0, 1], dtype=torch.double).unsqueeze(dim=0).repeat(100, 1)
-        sigma_and_a1 = torch.cat([sigma_onehot, a1], dim=1)
-        sigma_and_a2 = torch.cat([sigma_onehot, a2], dim=1)
+        obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
+        obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)
 
-        q_sigma_and_a1 = self.hr.critic(sigma_and_a1)
-        q_sigma_and_a2 = self.hr.critic(sigma_and_a2)
-        q_sigma_and_a = torch.cat([q_sigma_and_a1, q_sigma_and_a2], dim=1)
+        Gj_obs_and_a1 = self.critic_forhr(obs_and_a1)
+        Gj_obs_and_a2 = self.critic_forhr(obs_and_a2)
+        Gj_obs_and_a = torch.cat([Gj_obs_and_a1, Gj_obs_and_a2], dim=1)
 
-        constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * q_sigma_and_a, dim=1))
-        if constraint_left < self.config.pro.constraint_right:
-            constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * q_sigma_and_a.detach(), dim=1))
-            constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * q_sigma_and_a.detach(), dim=1))
-            constraint_term_3rd = torch.mean(phi_sigma.detach() * torch.sum(pi.detach() * q_sigma_and_a, dim=1))
+        # constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
+        # if constraint_left < self.config.pro.constraint_right:
+        constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * Gj_obs_and_a.detach(), dim=1))
+        constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * Gj_obs_and_a.detach(), dim=1))
+        # constraint_term_3rd = torch.mean(torch.sum(pi.detach() * q_sigma_and_a, dim=1))
 
-            gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
-                                                              list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
-                                                              list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_constraint_term_3rd = torch.autograd.grad(constraint_term_3rd,
-                                                              list(self.signaling_net.parameters()), retain_graph=True)
+        gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
+                                                          list(self.signaling_net.parameters()), retain_graph=True)
+        gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
+                                                          list(self.signaling_net.parameters()), retain_graph=True)
+        # gradeta_constraint_term_3rd = torch.autograd.grad(constraint_term_3rd,
+        #                                                   list(self.signaling_net.parameters()), retain_graph=True)
 
-            gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
-            gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd, 0) * self.config.pro.coe_for_recovery_fromgumbel
-            gradeta_constraint_term_3rd_flatten = flatten_layers(gradeta_constraint_term_3rd, 0) * self.config.pro.coe_for_recovery_fromgumbel
+        gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
+        gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd,
+                                                             0) * self.config.pro.coe_for_recovery_fromgumbel
+        # gradeta_constraint_term_3rd_flatten = flatten_layers(gradeta_constraint_term_3rd,
+        #                                                      0) * self.config.pro.coe_for_recovery_fromgumbel
 
-            gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
-                                         + gradeta_constraint_term_2nd_flatten \
-                                         + gradeta_constraint_term_3rd_flatten
-            gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+        gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
+                                     + gradeta_constraint_term_2nd_flatten \
+                                     # + gradeta_constraint_term_3rd_flatten
+        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
 
         # 返回为原来梯度的样子
         gradeta = []

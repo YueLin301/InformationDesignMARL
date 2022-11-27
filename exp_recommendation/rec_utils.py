@@ -46,11 +46,13 @@ def print_params(pro, hr):
     print('----------------------------------------')
 
     critic_pro_params = [param.tolist() for param in pro.critic.parameters()]
+    critic_pro_forhr_params = [param.tolist() for param in pro.critic_forhr.parameters()]
     signaling_params = [param.tolist() for param in pro.signaling_net.parameters()]
     critic_params = [param.tolist() for param in hr.critic.parameters()]
     actor_params = [param.tolist() for param in hr.actor.parameters()]
 
     print('critic_pro_params:', critic_pro_params)
+    print('critic_pro_forhr_params:', critic_pro_forhr_params)
     print('signaling_params:', signaling_params)
     print('critic_params:', critic_params)
     print('actor_params:', actor_params)
@@ -67,7 +69,9 @@ def validate_critic(agent):
             input = torch.tensor(input1_onehot + input2_onehot, dtype=torch.double)
             q = agent.critic(input)
             if agent.name == 'pro':
-                print('state:{}, action:{}, q:{}'.format(input1, input2, q))
+                Gj = agent.critic_forhr(input)
+                print('state:{}, action:{}, Gi:{}'.format(input1, input2, q))
+                print('state:{}, action:{}, Gj:{}'.format(input1, input2, Gj))
             elif agent.name == 'hr':
                 print('signal:{}, action:{}, q:{}'.format(input1, input2, q))
     return
