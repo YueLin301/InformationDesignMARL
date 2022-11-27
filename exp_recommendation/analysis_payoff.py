@@ -2,8 +2,8 @@ import torch
 from exp_recommendation.configs import env_config
 
 if __name__ == '__main__':
-    p_pro0 = 0.5
-    p_pro1 = 0.5
+    p_pro0 = 0.1744
+    p_pro1 = 0.3626
     phi_bad = torch.tensor([[p_pro0, 1 - p_pro0]], dtype=torch.double)
     phi_good = torch.tensor([[p_pro1, 1 - p_pro1]], dtype=torch.double)
     phi = torch.cat([phi_bad, phi_good])
