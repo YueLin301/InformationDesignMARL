@@ -145,27 +145,27 @@ class pro_class():
         q_sigma_and_a2 = self.hr.critic(sigma_and_a2)
         q_sigma_and_a = torch.cat([q_sigma_and_a1, q_sigma_and_a2], dim=1)
 
-        # constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * q_sigma_and_a, dim=1))
-        # if constraint_left > self.config.pro.constraint_right:
-        constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * q_sigma_and_a.detach(), dim=1))
-        constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * q_sigma_and_a.detach(), dim=1))
-        constraint_term_3rd = torch.mean(phi_sigma.detach() * torch.sum(pi.detach() * q_sigma_and_a, dim=1))
+        constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * q_sigma_and_a, dim=1))
+        if constraint_left < self.config.pro.constraint_right:
+            constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * q_sigma_and_a.detach(), dim=1))
+            constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * q_sigma_and_a.detach(), dim=1))
+            constraint_term_3rd = torch.mean(phi_sigma.detach() * torch.sum(pi.detach() * q_sigma_and_a, dim=1))
 
-        gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term_3rd = torch.autograd.grad(constraint_term_3rd,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
+                                                              list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
+                                                              list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_term_3rd = torch.autograd.grad(constraint_term_3rd,
+                                                              list(self.signaling_net.parameters()), retain_graph=True)
 
-        gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
-        gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd, 0) * self.config.pro.coe_for_recovery_fromgumbel
-        gradeta_constraint_term_3rd_flatten = flatten_layers(gradeta_constraint_term_3rd, 0) * self.config.pro.coe_for_recovery_fromgumbel
+            gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
+            gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd, 0) * self.config.pro.coe_for_recovery_fromgumbel
+            gradeta_constraint_term_3rd_flatten = flatten_layers(gradeta_constraint_term_3rd, 0) * self.config.pro.coe_for_recovery_fromgumbel
 
-        gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
-                                     + gradeta_constraint_term_2nd_flatten \
-                                     + gradeta_constraint_term_3rd_flatten
-        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+            gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
+                                         + gradeta_constraint_term_2nd_flatten \
+                                         + gradeta_constraint_term_3rd_flatten
+            gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
 
         # 返回为原来梯度的样子
         gradeta = []
