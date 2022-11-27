@@ -175,6 +175,10 @@ def plot_create_canvas():
     pi_hire_when_notrec_curve.set_title('P( hire | signal=0 )')
     pi_hire_when_rec_curve.set_title('P( hire | signal=1 )')
 
+    # 科学计数法
+    for axis in fig.axes:
+        axis.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+
     # 为重合的3张图设置标注legent
     # reward_compare_curve.legend(['R of Pro.', 'R of HR'])
     # pi_hire_when_notrec_curve.legend(['P(hire|signal=0)', 'P(signal=0|bad)'])
@@ -190,13 +194,14 @@ def plot_create_canvas():
 
     plt.tight_layout()
 
-    return reward_pro_curve, reward_hr_curve, \
+    return fig, \
+           reward_pro_curve, reward_hr_curve, \
            reward_compare_curve, reward_socialwalfare_curve, \
            phi_rec_when_bad_curve, phi_rec_when_good_curve, \
            pi_hire_when_notrec_curve, pi_hire_when_rec_curve
 
 
-def plot_all(fake_buffer, reward_pro_curve, reward_hr_curve,
+def plot_all(fake_buffer, fig, reward_pro_curve, reward_hr_curve,
              reward_compare_curve, reward_socialwalfare_curve,
              phi_rec_when_bad_curve, phi_rec_when_good_curve,
              pi_hire_when_notrec_curve, pi_hire_when_rec_curve):
