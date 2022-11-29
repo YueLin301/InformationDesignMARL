@@ -1,103 +1,76 @@
 import torch
-from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_layers
+from exp_harvest.harvest_utils import set_net_params, int_to_onehot, flatten_layers
+
+from exp_harvest.network import actor, critic, signaling_net
+
+
+def update_critic(critic, target_critic, critic_optimizer, loss_criterion, r, input, input_next):
+    output = critic(*input)
+    target_output = target_critic(input_next)
+    td_target = r + target_output
+    critic_loss = loss_criterion(td_target, output)
+
+    critic_optimizer.zero_grad()
+    critic_grad = torch.autograd.grad(critic_loss, list(critic.parameters()), retain_graph=True)
+    critic_params = list(critic.parameters())
+    for layer in range(len(critic_params)):
+        critic_params[layer].grad = critic_grad[layer]
+        critic_params[layer].grad.data.clamp_(-1, 1)
+    critic_optimizer.step()
+    return
 
 
 class sender_class():
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.name = 'sender'
         self.config = config
+        self.device = device
 
-        # G^i(s,a), rather than Q(s,sigma)
-        self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
-        # G^j(s,a), rather than Q(sigma,a)
-        self.critic_forhr = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
-        self.signaling_net = torch.nn.Sequential(
-            # input: one hot; output: signaling 0/1 prob. distribution
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
-            torch.nn.Softmax(dim=-1)
-        )
+        self.n_channels = n_channels = config.env.n_channels
 
-        if config.pro.initialize:
-            set_net_params(self.signaling_net, params=config.pro.signaling_params)
+        self.actor = actor(config, device=device)
+        self.critic_Gi = critic(config, 'G', device=device)  # Gi(s,aj), rather than Q(s,sigma)
+        self.critic_Gj = critic(config, 'G', device=device)  # Gj(s,aj), rather than Q(sigma,a)
+        self.signaling_net = signaling_net(config, device=device)
 
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.sender.lr_actor)
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.pro.lr_pro_critic)
-        self.critic_optimizer_forhr = torch.optim.Adam(self.critic_forhr.parameters(), config.pro.lr_pro_critic)
-        self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.pro.lr_signal)
+        self.critic_Gi_optimizer = torch.optim.Adam(self.critic_Gi.parameters(), config.sender.lr_critic_Gi)
+        self.critic_Gj_optimizer = torch.optim.Adam(self.critic_Gj.parameters(), config.sender.lr_critic_Gj)
+        self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.sender.lr_signal)
+
+        self.target_critic_Gi = critic(config, 'G', device=device).to(device)
+        self.target_critic_Gi.load_state_dict(self.critic_Gi.state_dict())
+        self.target_critic_Gj = critic(config, 'G', device=device).to(device)
+        self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
         self.temperature = 1
-        self.softmax_forGumble = torch.nn.Softmax(dim=-1)
-        self.message_table = torch.tensor([0, 1], dtype=torch.double)
 
-    def build_connection(self, hr):
-        self.hr = hr
+    def build_connection(self, receiver):
+        self.receiver = receiver
 
-    def update_c(self, buffer):
-        obs = buffer.obs_pro
-        obs_onehot = int_to_onehot(obs, k=2)
-        a_int_hr = buffer.a_int_hr
-        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
-        obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
-
-        r = buffer.reward_pro  # reward_pro
-        G = self.critic(obs_and_a_onehot).squeeze()
-        G_next = 0
-        td_target = r + G_next
-        critic_loss = self.critic_loss_criterion(td_target, G)
-
-        self.critic_optimizer.zero_grad()
-        critic_grad = torch.autograd.grad(critic_loss, list(self.critic.parameters()), retain_graph=True)
-        critic_params = list(self.critic.parameters())
-        for layer in range(len(critic_params)):
-            critic_params[layer].grad = critic_grad[layer]
-            critic_params[layer].grad.data.clamp_(-1, 1)
-        self.critic_optimizer.step()
-
-        r_hr = buffer.reward_hr
-        Gj = self.critic_forhr(obs_and_a_onehot).squeeze()
-        Gj_next = 0
-        td_target_j = r_hr + Gj_next
-        critic_loss_forhr = self.critic_loss_criterion(td_target_j, Gj)
-
-        self.critic_optimizer_forhr.zero_grad()
-        critic_grad_forhr = torch.autograd.grad(critic_loss_forhr, list(self.critic_forhr.parameters()),
-                                                retain_graph=True)
-        critic_params = list(self.critic_forhr.parameters())
-        for layer in range(len(critic_params)):
-            critic_params[layer].grad = critic_grad_forhr[layer]
-            critic_params[layer].grad.data.clamp_(-1, 1)
-        self.critic_optimizer_forhr.step()
-
+    def update_2critics(self):
+        update_critic(self.critic_Gi, self.target_critic_Gi, self.critic_Gi_optimizer, self.critic_loss_criterion,
+                      r_Gi, input_Gi, input_next_Gi)
+        update_critic(self.critic_Gj, self.target_critic_Gj, self.critic_Gj_optimizer, self.critic_loss_criterion,
+                      r_Gj, input_Gj, input_next_Gj)
         return
 
-    def gumbel_sample(self, dim=2):
-        u = torch.rand(dim, dtype=torch.double)
-        g = - torch.log(-torch.log(u))
-        return g
-
-    def my_gumbel_softmax(self, phi):
-        g = self.gumbel_sample(dim=2)
-        logits_forGumbel = (torch.log(phi) + g) / self.temperature
-        message_onehot = self.softmax_forGumble(logits_forGumbel)  # onehot
-        return message_onehot
+    def softupdate_target_2critics(self):
+        tau = self.config.nn.target_critic_tau
+        for tar, cur in zip(self.target_critic_Gi.parameters(), self.critic_Gi.parameters()):
+            tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
+        for tar, cur in zip(self.target_critic_Gj.parameters(), self.critic_Gj.parameters()):
+            tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
+        return
 
     def send_message(self, obs_list):
         obs_list = [obs_list] if isinstance(obs_list, int) else obs_list
-        if not self.config.pro.fixed_signaling_scheme:
-            obs_onehot = int_to_onehot(obs_list, k=2)
-            phi_current = self.signaling_net(obs_onehot)
-        else:
-            phi_current = self.config.pro.signaling_scheme[obs_list]
+        obs_onehot = int_to_onehot(obs_list, k=2)
+        phi_current = self.signaling_net(obs_onehot)
 
         logits = torch.log(phi_current)
         message_onehot = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
-        message = torch.einsum('i,ji->j', self.message_table, message_onehot)
 
         # # for tuning config.pro.coe_for_recovery_fromgumbel
         # temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
@@ -107,7 +80,7 @@ class sender_class():
         # temp4 = torch.autograd.grad(message_onehot[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
         # temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
 
-        return message_onehot, phi_current, message
+        return message_onehot, phi_current
 
     def update_infor_design(self, buffer):
         obs = buffer.obs_pro
@@ -197,29 +170,23 @@ class sender_class():
 
 
 class receiver_class():
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.name = 'receiver'
         self.config = config
+        self.device = device
 
-        self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
-        self.actor = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
-            torch.nn.Softmax(dim=-1)
-        )
+        self.n_channels = config.env.n_channels
 
-        if config.hr.initialize:
-            # set_net_params(self.critic, params=config.hr.critic_params)
-            set_net_params(self.actor, params=config.hr.actor_params)
+        self.actor = actor(config=config, device=device)
+        self.critic_Qj = critic(config=config, device=device)  # Q(sigma,aj)
+        self.signaling_net = signaling_net(config=config, device=device)
 
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.sender.lr_actor)
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.hr.lr_critic)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.hr.lr_actor)
+        self.critic_Qj_optimizer = torch.optim.Adam(self.critic_Qj.parameters(), config.sender.lr_critic_Gj)
 
-    def build_connection(self, pro):
-        self.pro = pro
+    def build_connection(self, sender):
+        self.sender = sender
 
     def choose_action(self, message):
         pi = self.actor(message)
@@ -234,7 +201,7 @@ class receiver_class():
             pi_a_i = pi[range(len(pi)), a_idx].detach()
             a_onehot = int_to_onehot([a_idx] * n_samples, k=2)
             message_and_a_i = torch.cat([message, a_onehot], dim=1)
-            q_i = self.critic(message_and_a_i).squeeze(dim=1)
+            q_i = self.critic_Qj(message_and_a_i).squeeze(dim=1)
             v = v + pi_a_i * q_i
         return v
 
@@ -242,7 +209,7 @@ class receiver_class():
         a_onehot_hr = int_to_onehot(buffer.a_int_hr, k=2)
         message_and_a = torch.cat([buffer.message_onehot_pro, a_onehot_hr], dim=1)
 
-        q = self.critic(message_and_a).squeeze()
+        q = self.critic_Qj(message_and_a).squeeze()
         q_next = 0
         td_target = buffer.reward_hr + q_next
         critic_loss = self.critic_loss_criterion(td_target, q)
@@ -271,12 +238,12 @@ class receiver_class():
                 actor_params[layer].grad.data.clamp_(-1, 1)
             self.actor_optimizer.step()
 
-        self.critic_optimizer.zero_grad()
-        critic_grad = torch.autograd.grad(critic_loss, list(self.critic.parameters()), retain_graph=True)
-        critic_params = list(self.critic.parameters())
+        self.critic_Qj_optimizer.zero_grad()
+        critic_grad = torch.autograd.grad(critic_loss, list(self.critic_Qj.parameters()), retain_graph=True)
+        critic_params = list(self.critic_Qj.parameters())
         for layer in range(len(critic_params)):
             critic_params[layer].grad = critic_grad[layer]
             critic_params[layer].grad.data.clamp_(-1, 1)
-        self.critic_optimizer.step()
+        self.critic_Qj_optimizer.step()
 
         return

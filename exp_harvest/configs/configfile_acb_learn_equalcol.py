@@ -90,11 +90,8 @@ config.alg.sender_objective_alpha = 0.2
 
 config.nn.kernel = 5
 config.nn.n_filters = 3
-# config.nn.n_h1 = 32
-config.nn.n_h2 = 32
+config.nn.hidden_width = 32
 config.nn.stride = 1
-config.nn.rnn_required = False
-config.nn.rnnGRU_hiddennum = 16
 config.nn.target_critic_tau = 0.98
 config.nn.target_critic_howoften = 1  # 过多少个episode更新一次target critic
 

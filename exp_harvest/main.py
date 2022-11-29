@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-from exp_cleanup.cleanup_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
-from exp_cleanup.train import train, set_Env_and_Agents
+from exp_harvest.harvest_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
+from exp_harvest.train import train, set_Env_and_Agents
 
-from exp_cleanup.configs.configfile_acb_learn_equalcol import config
+from exp_harvest.configs.configfile_acb_learn_equalcol import config
 
 
 def main(config, seeds_num=10):

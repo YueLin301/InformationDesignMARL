@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from exp_cleanup.episode_generator import run_an_episode
+from exp_harvest.episode_generator import run_an_episode
 
 import matplotlib.pyplot as plt
 from scipy.interpolate import make_interp_spline  # 曲线插值

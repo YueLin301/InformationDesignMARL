@@ -1,6 +1,6 @@
 from env import recommendation
-from exp_cleanup.agent_class import sender_class, receiver_class
-from exp_cleanup.episode_generator import run_an_episode
+from exp_harvest.agent_class import sender_class, receiver_class
+from exp_harvest.episode_generator import run_an_episode
 
 def set_Env_and_Agents(config):
     print('----------------------------------------')

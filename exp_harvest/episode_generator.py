@@ -1,5 +1,5 @@
 import torch
-from exp_cleanup.buffer_class import buffer_class
+from exp_harvest.buffer_class import buffer_class
 
 
 def run_an_episode(env, pro, hr, fake_buffer=None):
