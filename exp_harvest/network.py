@@ -6,17 +6,18 @@ default_dir = './results'
 
 
 class net_base(nn.Module):
-    def __init__(self, config, name=None, chkpt_dir=default_dir, device=None):
+    def __init__(self, n_channels, config, name=None, chkpt_dir=default_dir, device=None):
         super().__init__()
-        n_channels = config.env.n_channels
+        self.n_channels = n_channels
         # padding for keeping the width and height of input unchanged: kernel=3, padding=1; kernel=5, padding= 2; ...
         self.conv_layer = nn.Sequential(
             nn.Conv2d(n_channels, config.nn.n_filters, config.nn.kernel, config.nn.stride,
                       padding=int((config.nn.kernel - 1) / 2), dtype=torch.double), nn.ReLU(),
         )
 
+        obs_vector = config.env.obs_height * config.env.obs_width * config.nn.n_filters
         self.mlp = nn.Sequential(
-            nn.Linear(config.env.obs_vector, config.nn.hidden_width, dtype=torch.double), nn.ReLU(),
+            nn.Linear(obs_vector, config.nn.hidden_width, dtype=torch.double), nn.ReLU(),
             nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double), nn.ReLU(),
         )
 
@@ -38,8 +39,8 @@ class net_base(nn.Module):
 
 
 class actor(net_base):
-    def __init__(self, config, name='actor', chkpt_dir=default_dir, device=None):
-        super(actor, self).__init__(config, name=name, chkpt_dir=chkpt_dir, device=device)
+    def __init__(self, n_channels, config, name='actor', chkpt_dir=default_dir, device=None):
+        super(actor, self).__init__(n_channels, config, name=name, chkpt_dir=chkpt_dir, device=device)
 
         self.action_dim = config.env.dim_action
         self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double),
@@ -48,13 +49,12 @@ class actor(net_base):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
-        y1 = super(actor, self)(x)
+        y1 = super(actor, self).forward(x)
         y2 = self.output_layer(y1)
         return y2
 
-    def get_action_prob_logprob_stochastic(self, obs_and_message, epsilon=0):
-        a_prob = self.softmax(self.forward(obs_and_message))
-        a_prob = (1 - epsilon) * a_prob + epsilon / self.action_dim
+    def get_action_prob_logprob_stochastic(self, input):
+        a_prob = self.softmax(self.forward(input))
 
         a_int = torch.multinomial(a_prob, num_samples=1, replacement=True, )[:, 0]
         distribution = torch.distributions.Categorical(a_prob)
@@ -62,8 +62,8 @@ class actor(net_base):
 
 
 class critic(net_base):
-    def __init__(self, config, critic_type, name='critic', chkpt_dir=default_dir, device=None):
-        super(critic, self).__init__(config, name=name, chkpt_dir=chkpt_dir, device=device)
+    def __init__(self, n_channels, config, critic_type, name='critic', chkpt_dir=default_dir, device=None):
+        super(critic, self).__init__(n_channels, config, name=name, chkpt_dir=chkpt_dir, device=device)
 
         assert critic_type in ['G', 'Q']
         self.critic_type = critic_type
@@ -74,7 +74,7 @@ class critic(net_base):
                                           nn.Linear(config.nn.hidden_width, self.output_dim, dtype=torch.double))
 
     def forward(self, obs, *a):
-        y1 = super(critic, self)(obs)
+        y1 = super(critic, self).forward(obs)
         QorG_tables = self.output_layer(y1)
 
         idx = a[0] * self.action_dim + a[1] if self.critic_type == 'G' else a[0]
@@ -88,14 +88,14 @@ class critic(net_base):
 # For now, the Gaussian distribution is used for testing. The outputs are the \mu and \sigma, for every pixel.
 class signaling_net(net_base):
     def __init__(self, config, name='signaling_net', chkpt_dir=default_dir, device=None):
-        super(signaling_net, self).__init__(config, name=name, chkpt_dir=chkpt_dir, device=device)
+        super(signaling_net, self).__init__(config.sender.n_channels, config, name=name, chkpt_dir=chkpt_dir,
+                                            device=device)
 
-        self.n_channels = config.env.n_channels
         self.message_height = config.env.obs_height
         self.message_width = config.env.obs_width
 
         # logits of 0 or 1, for every pixel
-        self.output_dim = self.message_height * self.message_width * self.n_channels * 2
+        self.output_dim = self.message_height * self.message_width * 2
 
         self.output_layer_logits = nn.Sequential(
             nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double), nn.ReLU(),
@@ -103,7 +103,7 @@ class signaling_net(net_base):
         )
 
     def forward(self, x):
-        y = super(signaling_net, self)(x)
+        y = super(signaling_net, self).forward(x)
         logits = self.output_layer_logits(y).view(self.output_dim // 2, 2)
         phi = torch.softmax(logits, dim=-1)
         return phi

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from exp_harvest.harvest_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
 from exp_harvest.train import train, set_Env_and_Agents
 
-from exp_harvest.configs.configfile_acb_learn_equalcol import config
+from exp_harvest.configs.exp1_harvest import config
 
 
 def main(config, seeds_num=10):
@@ -28,5 +28,3 @@ def main(config, seeds_num=10):
 
 if __name__ == '__main__':
     main(config, seeds_num=1)
-    # main(config, seeds_num=5)
-    # main(config, seeds_num=10)

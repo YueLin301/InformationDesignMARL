@@ -15,12 +15,9 @@ class Env(object):
                         self.config.obs_width, 3]
         self.max_steps = self.config.max_steps
 
-        # Original space (not necessarily in this order, see
-        # the original ssd files):
-        # no-op, up, down, left, right, turn-ccw, turn-cw, penalty,
         if self.config.disable_rotation_action:
             self.l_action = 5
-            # left, right, up, down, no-op,
+            # left, right, up, down, stay,
             self.map_to_orig = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, }
 
         config_env.dim_action = self.l_action
@@ -30,6 +27,10 @@ class Env(object):
             ascii_map = maps.HARVEST_MAP_11
         elif self.config.map_name == 'HARVEST_MAP_7':
             ascii_map = maps.HARVEST_MAP_7
+        else:
+            ascii_map = None
+
+        assert ascii_map
 
         self.env = HarvestEnv(ascii_map=ascii_map,
                               num_agents=self.n_agents, render=False,
@@ -42,10 +43,13 @@ class Env(object):
     def process_obs(self, obs_dict):
         obs_allagent = [obs / 256.0 for obs in list(obs_dict.values())]
 
-        obs_allagent = self.generate_obs_with_channels(self.config.use_agent_position_channel, obs_allagent,
-                                                       self.env.agent_pos)
+        for agent_i in range(len(self.env.agent_pos)):
+            obs_allagent = self.generate_obs_with_channels(self.config.use_agent_position_channel, obs_allagent,
+                                                           [self.env.agent_pos[agent_i]])
         obs_allagent = self.generate_obs_with_channels(self.config.use_apple_position_channel, obs_allagent,
                                                        self.get_item_pos('apple'))
+        # obs_allagent = obs_allagent[:, :, 3:]
+        obs_allagent = [obs[:, :, 3:] for obs in obs_allagent]
         return obs_allagent
 
     def reset(self):
@@ -84,8 +88,8 @@ class Env(object):
 
         return obs_next, rewards, done, info
 
-    def render(self):
-        self.env.render()
+    def render(self, filename=None):
+        self.env.render(filename)
 
     def generate_obs_with_channels(self, pls_generate, obs_allagent, position_allitem):
         obs_with_position_allagent = obs_allagent
@@ -107,27 +111,25 @@ class Env(object):
 
     # 里面自带的那个apple_points和waste_points是base_map里的，不是实时的，真要找还得看test_map来找
     def get_item_pos(self, item):
-        pos = []
-        for row_i in range(len(self.env.test_map)):
-            for col_j in range(len(self.env.test_map[row_i])):
-                if item == 'apple':
-                    if self.env.test_map[row_i][col_j] == 'A':
-                        pos.append((row_i, col_j))
+        assert item == 'apple'
+
+        pos_where = np.where(self.env.test_map == 'A')
+        pos = np.transpose(
+            np.concatenate([np.expand_dims(pos_where[0], axis=0), np.expand_dims(pos_where[1], axis=0)]))
+
         return pos
 
 
 if __name__ == '__main__':
-    from configs import configfile_harvest_test
+    from exp_harvest.configs.env_config import config_env
 
-    config = configfile_harvest_test.get_config(wandb_config=False)
-
-    env = Env(config.env)
+    env = Env(config_env)
 
     obs_list = env.reset()
     env.render()
 
-    actions_list = [1, 2]
+    actions_list = [2, 3]
     obs_next_list, reward_list, done, info = env.step(actions_list)
-
+    env.render()
 
     print('haha')

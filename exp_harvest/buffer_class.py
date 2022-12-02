@@ -34,5 +34,5 @@ if __name__ == '__main__':
     message_depth = 1
     message = torch.rand(batch_size, obs_height, obs_width, message_depth)
 
-    ai =
+    # ai =
     print('haha')

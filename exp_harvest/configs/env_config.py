@@ -1,13 +1,27 @@
 from utils.configdict import ConfigDict
 
 config_env = ConfigDict()
-config_env.prob_good = 1 / 3
-config_env.num_sample = 1
-config_env.reward_magnification_factor = 1
-config_env.have_sender = True
-config_env.sample_n_students = 100
+config_env.name = 'harvest'
+config_env.map_name = 'HARVEST_MAP_7'
+# config_env.map_name = 'HARVEST_MAP_11'
 
-config_env.rewardmap_professor = [[0, 1],
-                                  [0, 1]]
-config_env.rewardmap_HR = [[0, -1],
-                           [0, 1]]
+config_env.max_steps = 50
+
+config_env.obs_height = 7  # obs的左右总长度，必须是奇数，viewsize是其-1的一半
+# config_env.obs_height = 11  # obs的左右总长度，必须是奇数，viewsize是其-1的一半
+
+config_env.obs_width = config_env.obs_height
+
+config_env.global_ref_point = [3, 3]  # (x-1)/2 if not None, a fixed global reference frame is used for all agents
+# config_env.global_ref_point = [5, 5]  # (x-1)/2 if not None, a fixed global reference frame is used for all agents
+
+config_env.disable_rotation_action = True
+
+config_env.use_agent_position_channel = True
+config_env.use_apple_position_channel = True
+
+# =========================
+
+config_env.n_agents = 2
+config_env.beam_width = 3
+config_env.view_size = int((config_env.obs_height - 1) / 2)
