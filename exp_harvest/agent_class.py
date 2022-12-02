@@ -31,7 +31,7 @@ class agent_base_class():
         self.n_channels = config.sender.n_channels if type == 'sender' else config.receiver.n_channels
         lr_actor = config.sender.lr_actor if type == 'sender' else config.receiver.lr_actor
 
-        self.actor = actor(self.n_channels, config, device=device)
+        self.actor = actor(self.n_channels, config, belongto=type, device=device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr_actor)
 
     def build_connection(self, partner):
@@ -42,6 +42,16 @@ class agent_base_class():
 
     def choose_action(self, input):
         return self.actor.get_action_prob_logprob_stochastic(input)
+
+    def calculate_v(self, message, pi):
+        v = 0
+        for a_idx in range(2):
+            pi_a_i = pi[range(len(pi)), a_idx].detach()
+            a_onehot = int_to_onehot([a_idx] * n_samples, k=2)
+            message_and_a_i = torch.cat([message, a_onehot], dim=1)
+            q_i = self.critic_Qj(message_and_a_i).squeeze(dim=1)
+            v = v + pi_a_i * q_i
+        return v
 
     def update_actor(self, buffer, critic):
         a_onehot_hr = int_to_onehot(buffer.a_int_hr, k=2)
@@ -80,11 +90,14 @@ class agent_base_class():
 
 class sender_class(agent_base_class):
     def __init__(self, config, device, id=0):
-        self.name = 'sender'
-        super().__init__(self.name, config, device, id)
+        self.name = name = 'sender'
+        super().__init__(name, config, device, id)
 
-        self.critic_Gi = critic(self.n_channels, config, 'G', device=device)  # Gi(s,aj), rather than Q(s,sigma)
-        self.critic_Gj = critic(self.n_channels, config, 'G', device=device)  # Gj(s,aj), rather than Q(sigma,a)
+        # G(s,a)
+        self.critic_Gi = critic(self.n_channels, config, belongto=name, critic_type='G', name='critic_Gi',
+                                device=device)
+        self.critic_Gj = critic(self.n_channels, config, belongto=name, critic_type='G', name='critic_Gj',
+                                device=device)
         self.signaling_net = signaling_net(config, device=device)
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
@@ -92,19 +105,21 @@ class sender_class(agent_base_class):
         self.critic_Gj_optimizer = torch.optim.Adam(self.critic_Gj.parameters(), config.sender.lr_critic_Gj)
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.sender.lr_signal)
 
-        self.target_critic_Gi = critic(self.n_channels, config, 'G', device=device).to(device)
+        self.target_critic_Gi = critic(self.n_channels, config, belongto=name, critic_type='G', name='target_critic_Gi',
+                                       device=device)
         self.target_critic_Gi.load_state_dict(self.critic_Gi.state_dict())
-        self.target_critic_Gj = critic(self.n_channels, config, 'G', device=device).to(device)
+        self.target_critic_Gj = critic(self.n_channels, config, belongto=name, critic_type='G', name='target_critic_Gj',
+                                       device=device)
         self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
         self.temperature = 1
-        self.message_table = torch.tensor([0, 1], dtype=torch.double)  # from onehot to 1
+        self.message_table = torch.tensor([0, 1], dtype=torch.double).to(self.device)  # from onehot to 1
 
-    def update_2critics(self, r_Gi, input_Gi, input_next_Gi, r_Gj, input_Gj, input_next_Gj):
+    def update_2critics(self, ri, input_Gi, input_next_Gi, rj, input_Gj, input_next_Gj):
         update_critic(self.critic_Gi, self.target_critic_Gi, self.critic_Gi_optimizer, self.critic_loss_criterion,
-                      r_Gi, input_Gi, input_next_Gi)
+                      ri, input_Gi, input_next_Gi)
         update_critic(self.critic_Gj, self.target_critic_Gj, self.critic_Gj_optimizer, self.critic_loss_criterion,
-                      r_Gj, input_Gj, input_next_Gj)
+                      rj, input_Gj, input_next_Gj)
         return
 
     def softupdate_target_2critics(self):
@@ -113,6 +128,12 @@ class sender_class(agent_base_class):
             tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
         for tar, cur in zip(self.target_critic_Gj.parameters(), self.critic_Gj.parameters()):
             tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
+        return
+
+    def update_ac(self, buffer):
+        self.update_2critics(buffer)
+        self.update_actor()
+        self.softupdate_target_2critics()
         return
 
     def send_message(self, obs):
@@ -218,25 +239,44 @@ class sender_class(agent_base_class):
 
         return
 
+    def save_models(self):
+        self.actor.save_checkpoint()
+        self.critic_Gi.save_checkpoint()
+        self.critic_Gj.save_checkpoint()
+        self.target_critic_Gi.save_checkpoint()
+        self.target_critic_Gj.save_checkpoint()
+        self.signaling_net.save_checkpoint()
+
+    def load_models(self):
+        self.actor.load_checkpoint()
+        self.critic_Gi.load_checkpoint()
+        self.critic_Gj.load_checkpoint()
+        self.target_critic_Gi.load_checkpoint()
+        self.target_critic_Gj.load_checkpoint()
+        self.signaling_net.load_checkpoint()
+
 
 class receiver_class(agent_base_class):
     def __init__(self, config, device, id=1):
-        self.name = 'receiver'
-        super().__init__(self.name, config, device, id)
+        self.name = name = 'receiver'
+        super().__init__(name, config, device, id)
 
-        self.critic_Qj = critic(self.n_channels, config=config, critic_type='Q', device=device, )  # Q(sigma,aj)
-        self.signaling_net = signaling_net(config=config, device=device)
+        # Q(sigma,aj)
+        self.critic_Qj = critic(self.n_channels, config, belongto=name, critic_type='Q', device=device)
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_Qj_optimizer = torch.optim.Adam(self.critic_Qj.parameters(), config.receiver.lr_critic_Gj)
 
-    def calculate_v(self, message, pi):
-        v = 0
-        n_samples = message.shape[0] if len(message.shape) > 1 else 1
-        for a_idx in range(2):
-            pi_a_i = pi[range(len(pi)), a_idx].detach()
-            a_onehot = int_to_onehot([a_idx] * n_samples, k=2)
-            message_and_a_i = torch.cat([message, a_onehot], dim=1)
-            q_i = self.critic_Qj(message_and_a_i).squeeze(dim=1)
-            v = v + pi_a_i * q_i
-        return v
+        self.target_critic_Qj = critic(self.n_channels, config, belongto=name, critic_type='Q', name='target_critic',
+                                       device=device)
+        self.target_critic_Qj.load_state_dict(self.critic_Qj.state_dict())
+
+    def save_models(self):
+        self.actor.save_checkpoint()
+        self.critic_Qj.save_checkpoint()
+        self.target_critic_Qj.save_checkpoint()
+
+    def load_models(self):
+        self.actor.load_checkpoint()
+        self.critic_Qj.load_checkpoint()
+        self.target_critic_Qj.load_checkpoint()

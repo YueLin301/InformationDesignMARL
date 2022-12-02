@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from exp_harvest.harvest_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
 from exp_harvest.train import train, set_Env_and_Agents
 
-from exp_harvest.configs.exp1_harvest import config
+from exp_harvest.configs.exp0_test import config
 
 
 def main(config, seeds_num=10):

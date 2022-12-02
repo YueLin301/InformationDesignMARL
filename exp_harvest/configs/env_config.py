@@ -7,13 +7,14 @@ config_env.map_name = 'HARVEST_MAP_7'
 
 config_env.max_steps = 50
 
-config_env.obs_height = 7  # obs的左右总长度，必须是奇数，viewsize是其-1的一半
-# config_env.obs_height = 11  # obs的左右总长度，必须是奇数，viewsize是其-1的一半
+config_env.obs_height = 5  # maplength-2
+# config_env.obs_height = 9 # maplength-2
 
 config_env.obs_width = config_env.obs_height
 
-config_env.global_ref_point = [3, 3]  # (x-1)/2 if not None, a fixed global reference frame is used for all agents
-# config_env.global_ref_point = [5, 5]  # (x-1)/2 if not None, a fixed global reference frame is used for all agents
+config_env.global_ref_point = [3,
+                               3]  # (maplenth-1)/2 if not None, a fixed global reference frame is used for all agents
+# config_env.global_ref_point = [5, 5]  # (maplenth-1)/2 if not None, a fixed global reference frame is used for all agents
 
 config_env.disable_rotation_action = True
 

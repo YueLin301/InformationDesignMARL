@@ -1,17 +1,10 @@
-import glob
 import os.path
-from exp_harvest.configs.exp1_harvest import config
+from exp_harvest.configs.exp0_test import config
 from agent_class import sender_class, receiver_class
 from exp_harvest.harvest_utils import generate_receiver_obs_and_message, obs_list_totorch
 import torch
 
 from env.harvest import Env
-
-import matplotlib.pyplot as plt
-
-
-def unittest():
-    return
 
 
 def generate_animation_failed():
