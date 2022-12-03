@@ -52,38 +52,24 @@ class agent_base_class():
         v = torch.sum(q_table * pi)
         return v
 
-    def update_actor(self, critic, target_critic, input_critic, input_target_critic, a, a_next, pi,
-                     r):
+    def update_actor(self, critic, input_critic, a, pi, ):
         q_table = critic(input_critic)
-        q_table_next = target_critic(input_target_critic)
-
         q = q_table[a]
-        q_next = q_table_next[a_next]
-
         v = self.calculate_v_foractor(critic, input_critic, pi)
-        if self.config.train.GAE_term == 'TD-error':
-            td_target = r + self.gamma * q_next
-            td_error = td_target - v
-            actor_obj = td_error * torch.log(pi[a])
-        elif self.config.train.GAE_term == 'advantage':
-
-            advantage = q - v
-            actor_obj = advantage * buffer.a_logprob_hr
-        else:
-            raise NotImplementedError
+        advantage = q - v
+        actor_obj = advantage * torch.log(pi[a])
         actor_obj_mean = torch.mean(actor_obj)
 
-        entropy = -torch.sum(buffer.a_prob_hr * torch.log(buffer.a_prob_hr))
+        entropy = -torch.sum(pi[a] * torch.log(pi[a]))
 
-        if not self.config.hr.fixed_policy:
-            self.actor_optimizer.zero_grad()
-            actor_grad = torch.autograd.grad(actor_obj_mean + self.config.hr.entropy_coe * entropy,
-                                             list(self.actor.parameters()), retain_graph=True)
-            actor_params = list(self.actor.parameters())
-            for layer in range(len(actor_params)):
-                actor_params[layer].grad = - actor_grad[layer]
-                actor_params[layer].grad.data.clamp_(-1, 1)
-            self.actor_optimizer.step()
+        self.actor_optimizer.zero_grad()
+        actor_grad = torch.autograd.grad(actor_obj_mean + self.config.hr.entropy_coe * entropy,
+                                         list(self.actor.parameters()), retain_graph=True)
+        actor_params = list(self.actor.parameters())
+        for layer in range(len(actor_params)):
+            actor_params[layer].grad = - actor_grad[layer]
+            actor_params[layer].grad.data.clamp_(-1, 1)
+        self.actor_optimizer.step()
 
         return
 
