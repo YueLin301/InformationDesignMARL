@@ -2,7 +2,7 @@ from utils.configdict import ConfigDict
 from exp_harvest.configs.env_config import config_env
 from exp_harvest.configs.path_config import config_path
 
-default_dim_action = 9
+default_dim_action = 5
 
 config = ConfigDict()
 
@@ -19,8 +19,14 @@ config.path = config_path
 
 # ==================================================
 
+config.n_channels = ConfigDict()
+config.n_channels.obs_sender = 3  # sender position, receiver position, apple position
+config.n_channels.obs_receiver = 1  # receiver position
+config.n_channels.message = 1  # fake apple position
+
+# ==================================================
+
 config.sender = ConfigDict()
-config.sender.n_channels = 3  # sender position, receiver position, apple position
 config.sender.lr_actor = 1e-4
 config.sender.lr_critic_Gi = 1e-3
 config.sender.lr_critic_Gj = 1e-3
@@ -33,7 +39,6 @@ config.sender.sender_objective_alpha = 0.2
 # ==================================================
 
 config.receiver = ConfigDict()
-config.receiver.n_channels = 2  # receiver position, message(apple position)
 config.receiver.lr_actor = 1e-4
 config.receiver.lr_critic_Gj = 1e-3
 

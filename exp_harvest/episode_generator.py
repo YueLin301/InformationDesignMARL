@@ -24,9 +24,10 @@ def run_an_episode(env, sender, receiver, config, device, pls_render):
 
     while not done:
         message, phi = sender.send_message(observations[sender.id])
+        obs_and_message_sender = torch.cat([observations[sender.id], message], dim=1)
         obs_and_message_receiver = generate_receiver_obs_and_message(observations[receiver.id], message)
 
-        a_sender, pi_sender = sender.choose_action(observations[sender.id])
+        a_sender, pi_sender = sender.choose_action(obs_and_message_sender)
         a_receiver, pi_receiver = receiver.choose_action(obs_and_message_receiver)
 
         observations_next_np, rewards, done, info = env.step([int(a_sender), int(a_receiver)])
@@ -44,7 +45,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render):
 
     if pls_render:
         imgs = []
-        for file_idx in range(51):
+        for file_idx in range(config.env.max_steps + 1):
             filename = os.path.join(config.path.saved_episode, str(file_idx) + '.png')
             img = imageio.v2.imread(filename)
             imgs.append(img)
@@ -54,7 +55,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render):
 
 
 if __name__ == '__main__':
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     print(device)
     env = Env(config_env=config.env)
     sender = sender_class(config=config, device=device)

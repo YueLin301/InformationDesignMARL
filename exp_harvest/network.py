@@ -56,23 +56,20 @@ class actor(net_base):
         y2 = self.output_layer(y1)
         return y2
 
-    def get_action_prob_logprob_stochastic(self, input):
+    def get_a_and_pi(self, input):
         a_prob = self.softmax(self.forward(input))
         a_int = torch.multinomial(a_prob, num_samples=1, replacement=True, )[:, 0]
         return a_int, a_prob
 
 
 class critic(net_base):
-    def __init__(self, n_channels, config, belongto, critic_type, name='critic', device=None):
-        super(critic, self).__init__(n_channels, config, belongto, name=name, device=device)
+    def __init__(self, input_n_channels, output_dims, config, belongto, name='critic', device=None):
+        super(critic, self).__init__(input_n_channels, config, belongto, name=name, device=device)
 
-        assert critic_type in ['G', 'Q']
-        self.critic_type = critic_type
         self.action_dim = config.env.dim_action
-        self.output_dim = self.action_dim ** config.env.n_agents if critic_type == 'G' else self.action_dim
         self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double),
                                           nn.ReLU(),
-                                          nn.Linear(config.nn.hidden_width, self.output_dim, dtype=torch.double))
+                                          nn.Linear(config.nn.hidden_width, output_dims, dtype=torch.double))
 
         self.device = device
         self.to(self.device)
@@ -92,7 +89,8 @@ class critic(net_base):
 # For now, the Gaussian distribution is used for testing. The outputs are the \mu and \sigma, for every pixel.
 class signaling_net(net_base):
     def __init__(self, config, name='signaling_net', device=None):
-        super(signaling_net, self).__init__(config.sender.n_channels, config, belongto='sender', name=name,
+        self.n_channels = config.n_channels.obs_sender
+        super(signaling_net, self).__init__(self.n_channels, config, belongto='sender', name=name,
                                             device=device)
 
         self.message_height = config.env.obs_height
