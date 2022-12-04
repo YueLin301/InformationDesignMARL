@@ -6,8 +6,8 @@ from exp_harvest.network import actor, critic, signaling_net
 def calculate_critic_loss(critic, target_critic, loss_criterion, r, input, a, input_next, a_next, gamma):
     output_table = critic(input)
     target_output_table = target_critic(input_next)
-    output = output_table[a]
-    target_output = target_output_table[a_next]
+    output = output_table[range(len(a)), a]
+    target_output = target_output_table[range(len(a)), a_next]
 
     td_target = r + gamma * target_output
     critic_loss = loss_criterion(td_target, output)
@@ -59,19 +59,21 @@ class agent_base_class():
 
     def calculate_v_foractor(self, critic, input_critic, pi):
         q_table = critic(input_critic)
-        assert len(q_table) == self.config.env.dim_action
-        v = torch.sum(q_table * pi)
+        assert q_table.shape[1] == self.config.env.dim_action
+        v = torch.sum(q_table * pi, dim=1)
         return v
 
     def calculate_actorobj_and_entropy(self, critic, input_critic, a, pi, ):
         q_table = critic(input_critic)
-        q = q_table[a]
+        q = q_table[range(len(a)), a]
         v = self.calculate_v_foractor(critic, input_critic, pi)
         advantage = q - v
-        actor_obj = advantage * torch.log(pi[a])
+        pi_a = pi[range(len(a)), a]
+        actor_obj = advantage * torch.log(pi_a)
         actor_obj_mean = torch.mean(actor_obj)
 
-        entropy = -torch.sum(pi[a] * torch.log(pi[a]))
+        entropy = -torch.sum(pi * torch.log(pi))
+        # entropy2 = -torch.sum(pi_a * torch.log(pi_a))
 
         return actor_obj_mean, entropy
 
@@ -116,21 +118,21 @@ class sender_class(agent_base_class):
         self.message_table = torch.tensor([0, 1], dtype=torch.double).to(self.device)  # from onehot to 1
 
     def calculate_3critics_loss(self, batch):
-        ri = batch.data[batch.name_dict['ri']]
-        rj = batch.data[batch.name_dict['rj']]
-        obs_sender = batch.data[batch.name_dict['obs_sender']]
-        obs_sender_next = batch.data[batch.name_dict['obs_sender_next']]
+        ri = torch.tensor(batch.data[batch.name_dict['ri']], dtype=torch.double).to(self.device)
+        rj = torch.tensor(batch.data[batch.name_dict['rj']], dtype=torch.double).to(self.device)
+        obs_sender = torch.cat(batch.data[batch.name_dict['obs_sender']])
+        obs_sender_next = torch.cat(batch.data[batch.name_dict['obs_sender_next']])
 
-        message = batch.data[batch.name_dict['message']]
+        message = torch.cat(batch.data[batch.name_dict['message']])
         obs_and_message_sender = torch.cat([obs_sender, message], dim=1)
 
-        message_next = batch.data[batch.name_dict['message_next']]
+        message_next = torch.cat(batch.data[batch.name_dict['message_next']])
         obs_and_message_sender_next = torch.cat([obs_sender_next, message_next], dim=1)
 
-        ai = batch.data[batch.name_dict['ai']]
-        ai_next = batch.data[batch.name_dict['ai_next']]
-        aj = batch.data[batch.name_dict['aj']]
-        aj_next = batch.data[batch.name_dict['aj_next']]
+        ai = torch.cat(batch.data[batch.name_dict['ai']])
+        ai_next = torch.cat(batch.data[batch.name_dict['ai_next']])
+        aj = torch.cat(batch.data[batch.name_dict['aj']])
+        aj_next = torch.cat(batch.data[batch.name_dict['aj_next']])
         a_idx = ai * self.dim_action + aj
         a_idx_next = ai_next * self.dim_action + aj_next
 
@@ -156,20 +158,33 @@ class sender_class(agent_base_class):
             tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
         return
 
-    def update(self, batch):
+    def calculate_for_updating(self, batch):
         critic_loss_Gi, critic_loss_Gj, critic_loss_foractor = self.calculate_3critics_loss(batch)
 
         # critic, input_critic, a, pi
         # input_critic <= s, sigma, ai
-        obs_sender = batch.data[batch.name_dict['obs_sender']]
-        message = batch.data[batch.name_dict['message']]
+        obs_sender = torch.cat(batch.data[batch.name_dict['obs_sender']])
+        message = torch.cat(batch.data[batch.name_dict['message']])
         obs_and_message_sender = torch.cat([obs_sender, message], dim=1)
-        ai = batch.data[batch.name_dict['ai']]
-        pii = batch.data[batch.name_dict['pii']]
+        ai = torch.cat(batch.data[batch.name_dict['ai']])
+        pii = torch.cat(batch.data[batch.name_dict['pii']])
         actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_foractor,
                                                                       input_critic=obs_and_message_sender, a=ai, pi=pii)
 
         gradeta = self.calculate_gradeta(batch)
+
+        return critic_loss_Gi, critic_loss_Gj, critic_loss_foractor, actor_obj_mean, entropy, gradeta
+
+    def update(self, critic_loss_Gi, critic_loss_Gj, critic_loss_foractor, actor_obj_mean, entropy, gradeta):
+
+        grad_and_step(self.critic_Gi, self.critic_Gi_optimizer, critic_loss_Gi, 'descent')
+        grad_and_step(self.critic_Gj, self.critic_Gj_optimizer, critic_loss_Gj, 'descent')
+        grad_and_step(self.critic_foractor, self.critic_foractor_optimizer, critic_loss_foractor, 'descent')
+
+        grad_and_step(self.actor, self.actor_optimizer, actor_obj_mean + self.config.sender.entropy_coe * entropy,
+                      'ascent')
+
+        self.softupdate_3target_critics()
 
         self.signaling_optimizer.zero_grad()
         params = list(self.signaling_net.parameters())
@@ -177,15 +192,6 @@ class sender_class(agent_base_class):
             params[i].grad = - gradeta[i]  # gradient ascent
             params[i].grad.data.clamp_(-1, 1)
         self.signaling_optimizer.step()
-
-        grad_and_step(self.critic_Gi, self.critic_Gi_optimizer, critic_loss_Gi, 'descent')
-        grad_and_step(self.critic_Gj, self.critic_Gj_optimizer, critic_loss_Gj, 'descent')
-        grad_and_step(self.critic_foractor, self.critic_foractor_optimizer, critic_loss_foractor, 'descent')
-
-        grad_and_step(self.actor, self.actor_optimizer, self.config.sender.entropy_coe * entropy, 'ascent')
-
-        self.softupdate_3target_critics()
-        return
 
     def send_message(self, obs):
         phi = self.signaling_net(obs)
@@ -205,19 +211,23 @@ class sender_class(agent_base_class):
         return message, phi
 
     def calculate_gradeta(self, batch):
-        obs_sender = batch.data[batch.name_dict['obs_sender']]
-        phi = batch.data[batch.name_dict['phi']]
-        sigma = message = batch.data[batch.name_dict['message']]
-        phi_sigma = phi[range(len(sigma)), sigma]
+        obs_sender = torch.cat(batch.data[batch.name_dict['obs_sender']])
+        phi = torch.cat(batch.data[batch.name_dict['phi']])
+        sigma = message = torch.cat(batch.data[batch.name_dict['message']])
 
-        ai = batch.data[batch.name_dict['ai']]
-        aj = batch.data[batch.name_dict['aj']]
+        phi_flatten = phi.view(-1, phi.shape[-1])
+        sigma_flatten = torch.flatten(sigma).long()
+        phi_sigma_flatten = phi_flatten[range(len(sigma_flatten)), sigma_flatten]
+        phi_sigma = phi_sigma_flatten.view(phi.shape[:-1])
 
-        pii = batch.data[batch.name_dict['pii']]
-        pij = batch.data[batch.name_dict['pij']]
+        ai = torch.cat(batch.data[batch.name_dict['ai']])
+        aj = torch.cat(batch.data[batch.name_dict['aj']])
 
-        pii_ai = pii[ai]
-        pij_aj = pij[aj]
+        pii = torch.cat(batch.data[batch.name_dict['pii']])
+        pij = torch.cat(batch.data[batch.name_dict['pij']])
+
+        pii_ai = pii[range(len(ai)), ai]
+        pij_aj = pij[range(len(aj)), aj]
 
         ''' SG (Signaling Gradient) '''
         # s, ai, aj
@@ -226,48 +236,56 @@ class sender_class(agent_base_class):
         Gi = Gi_table[range(len(a_idx)), a_idx]
 
         log_phi_sigma = torch.log(phi_sigma)
-        log_phi_sigma_sum = torch.sum(log_phi_sigma)
+        log_phi_sigma_sum = torch.sum(log_phi_sigma, dim=1)
 
         log_pii_ai = torch.log(pii_ai)
-        log_pii_ai_sum = torch.sum(log_pii_ai)
-
         log_pij_aj = torch.log(pij_aj)
-        log_pij_aj_sum = torch.sum(log_pij_aj)
 
+        # tuning for gumbel-softmax
         term = torch.mean(Gi.detach() * (log_phi_sigma_sum
-                                         + log_pii_ai_sum
-                                         + log_pij_aj_sum))
+                                         + log_pii_ai
+                                         + log_pij_aj))
 
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()),
                                       retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 
         ''' BCE Obedience Constraint (Lagrangian) '''
-        sigma_counterfactual = torch.round(torch.rand_like(sigma))
-        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+        sigma_counterfactual = torch.round(torch.rand_like(sigma))  # negative sampling
+        obs_and_message_receiver = torch.cat(batch.data[batch.name_dict['obs_and_message_receiver']])
         obs_and_message_counterfactual_receiver = generate_receiver_obs_and_message_counterfactual(
             obs_and_message_receiver, sigma_counterfactual)
 
-        _, pij_counterfactual, _ = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
+        _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
 
         # s, aj
         Gj_table = self.critic_Gj(obs_sender)
         # term = phi_sigma * torch.sum((pij - pij_counterfactual) * Gj_table)
-        term1 = torch.mean(phi_sigma * torch.sum(pij.detach() * Gj_table.detach()))
-        term2 = torch.mean(phi_sigma.detach() * torch.sum(pij * Gj_table.detach()))
+        term1 = phi_sigma * torch.sum(pij.detach() * Gj_table.detach(), dim=1).unsqueeze(dim=1)
+        term2 = phi_sigma.detach() * torch.sum(pij * Gj_table.detach(), dim=1).unsqueeze(dim=1)
 
-        gradeta_constraint_term1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term2 = torch.autograd.grad(term2, list(self.signaling_net.parameters()), retain_graph=True)
+        # every pixel
+        term1_sum = torch.sum(term1, dim=1)
+        term2_sum = torch.sum(term2, dim=1)
+
+        term1_mean = torch.mean(term1_sum)
+        term2_mean = torch.mean(term2_sum)
+
+        gradeta_constraint_term1 = torch.autograd.grad(term1_mean, list(self.signaling_net.parameters()),
+                                                       retain_graph=True)
+        gradeta_constraint_term2 = torch.autograd.grad(term2_mean, list(self.signaling_net.parameters()),
+                                                       retain_graph=True)
 
         gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term1)
         gradeta_constraint_term_2nd_flatten = flatten_layers(
-            gradeta_constraint_term2) * self.config.pro.coe_for_recovery_fromgumbel
+            gradeta_constraint_term2) * self.config.sender.coe_for_recovery_fromgumbel
 
         gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
                                      + gradeta_constraint_term_2nd_flatten
-        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+        gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
 
         # reform to be in original shape
+        gradeta_flatten = gradeta_flatten.squeeze()
         gradeta = []
         idx = 0
         for layerl in self.signaling_net.parameters():
@@ -316,12 +334,12 @@ class receiver_class(agent_base_class):
                                        belongto=name, name='target_critic', device=device)
         self.target_critic_Qj.load_state_dict(self.critic_Qj.state_dict())
 
-    def update(self, batch):
-        rj = batch.data[batch.name_dict['rj']]
-        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-        obs_and_message_receiver_next = batch.data[batch.name_dict['obs_and_message_receiver_next']]
-        aj = batch.data[batch.name_dict['aj']]
-        aj_next = batch.data[batch.name_dict['aj_next']]
+    def calculate_for_updating(self, batch):
+        rj = torch.tensor(batch.data[batch.name_dict['rj']], dtype=torch.double).to(self.device)
+        obs_and_message_receiver = torch.cat(batch.data[batch.name_dict['obs_and_message_receiver']])
+        obs_and_message_receiver_next = torch.cat(batch.data[batch.name_dict['obs_and_message_receiver_next']])
+        aj = torch.cat(batch.data[batch.name_dict['aj']])
+        aj_next = torch.cat(batch.data[batch.name_dict['aj_next']])
 
         critic_loss_Qj = calculate_critic_loss(self.critic_Qj, self.target_critic_Qj,
                                                self.critic_loss_criterion, r=rj,
@@ -331,11 +349,15 @@ class receiver_class(agent_base_class):
                                                gamma=self.gamma)
 
         # critic, input_critic, a, pi
-        pij = batch.data[batch.name_dict['pij']]
+        pij = torch.cat(batch.data[batch.name_dict['pij']])
         actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_Qj, obs_and_message_receiver, aj, pij)
 
+        return critic_loss_Qj, actor_obj_mean, entropy
+
+    def update(self, critic_loss_Qj, actor_obj_mean, entropy):
         grad_and_step(self.critic_Qj, self.critic_Qj_optimizer, critic_loss_Qj, 'descent')
-        grad_and_step(self.actor, self.actor_optimizer, self.config.sender.entropy_coe * entropy, 'ascent')
+        grad_and_step(self.actor, self.actor_optimizer, actor_obj_mean + self.config.sender.entropy_coe * entropy,
+                      'ascent')
         return
 
     def save_models(self):

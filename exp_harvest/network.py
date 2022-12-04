@@ -78,10 +78,7 @@ class critic(net_base):
         y1 = super(critic, self).forward(obs)
         QorG_tables = self.output_layer(y1)
 
-        idx = a[0] * self.action_dim + a[1] if self.critic_type == 'G' else a[0]
-        QorG = QorG_tables[range(len(idx)), idx]
-
-        return QorG
+        return QorG_tables
 
 
 # The signaling net should be stochastic.

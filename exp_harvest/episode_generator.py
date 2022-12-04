@@ -32,8 +32,8 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         observations_next_np, rewards, done, info = env.step([int(a_sender), int(a_receiver)])
         observations_next = obs_list_totorch(observations_next_np, device)
 
-        half_transition = [observations[sender.id], message, phi, obs_and_message_receiver, a_sender, pi_sender,
-                           a_receiver, pi_receiver, rewards[sender.id], rewards[receiver.id]]
+        half_transition = [observations[sender.id], message, phi.unsqueeze(dim=0), obs_and_message_receiver, a_sender,
+                           pi_sender, a_receiver, pi_receiver, rewards[sender.id], rewards[receiver.id]]
         if not done:
             buffer.add_half_transition(half_transition, '1st')
         if step:

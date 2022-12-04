@@ -34,9 +34,10 @@ config.sender.lr_critic_foractor = 1e-3
 config.sender.lr_signal = 1e-3
 
 config.sender.gamma = 0.99
-config.sender.entropy_coe = 1e-3
+config.sender.entropy_coe = 1e-4
 
 config.sender.sender_objective_alpha = 0.2
+config.sender.coe_for_recovery_fromgumbel = 1 # TODO
 
 # ==================================================
 
@@ -45,7 +46,7 @@ config.receiver.lr_actor = 1e-4
 config.receiver.lr_critic_Gj = 1e-3
 
 config.receiver.gamma = 0.99
-config.receiver.entropy_coe = 1e-3
+config.receiver.entropy_coe = 1e-4
 
 # ==================================================
 

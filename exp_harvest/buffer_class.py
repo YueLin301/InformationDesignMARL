@@ -11,6 +11,7 @@ name_dict = dict(zip(name, range(len_name)))
 class buffer_class(object):
     def __init__(self):
         self.name, self.len_name, self.name_dict = name, len_name, name_dict
+        self.capacity = 300
         self.reset()
 
     def reset(self):
@@ -30,6 +31,10 @@ class buffer_class(object):
             for i in range(self.len_name // 2, self.len_name):
                 self.data[i].append(half_transition[i - self.len_name // 2])
             self.data_size += 1
+
+        if self.data_size > self.capacity:
+            for i in range(len(self.data)):
+                self.data[i].pop(0)
 
     def sample_a_batch(self, batch_size):
         assert batch_size <= self.data_size
