@@ -11,18 +11,17 @@ from env.harvest import Env
 import imageio
 
 
-def run_an_episode(env, sender, receiver, config, device, pls_render):
-    buffer = buffer_class()
-
+def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
     done = False
     observations_np = env.reset()
     observations = obs_list_totorch(observations_np, device)
+
     step = 0
     if pls_render:
         filename = os.path.join(config.path.saved_episode, str(step))
         env.render(filename)
-
     while not done:
+
         message, phi = sender.send_message(observations[sender.id])
         obs_and_message_sender = torch.cat([observations[sender.id], message], dim=1)
         obs_and_message_receiver = generate_receiver_obs_and_message(observations[receiver.id], message)
@@ -32,15 +31,18 @@ def run_an_episode(env, sender, receiver, config, device, pls_render):
 
         observations_next_np, rewards, done, info = env.step([int(a_sender), int(a_receiver)])
         observations_next = obs_list_totorch(observations_next_np, device)
+
+        half_transition = [observations[sender.id], message, phi, obs_and_message_receiver, a_sender, pi_sender,
+                           a_receiver, pi_receiver, rewards[sender.id], rewards[receiver.id]]
+        if not done:
+            buffer.add_half_transition(half_transition, '1st')
+        if step:
+            buffer.add_half_transition(half_transition, '2nd')
+
         step += 1
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(step))
             env.render(filename)
-
-        transition = [observations[sender.id], message, phi, obs_and_message_receiver, a_sender, pi_sender, a_receiver,
-                      pi_receiver, rewards[sender.id], rewards[receiver.id]]
-        buffer.add(transition)
-
         observations = observations_next
 
     if pls_render:
@@ -51,7 +53,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render):
             imgs.append(img)
         imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.5)
 
-    return buffer
+    return
 
 
 if __name__ == '__main__':
@@ -63,12 +65,26 @@ if __name__ == '__main__':
 
     # run_an_episode(env, sender, receiver, config, device, pls_render=True)
 
-    import time
-
-    t0 = time.time()
+    # import time
+    # t0 = time.time()
     # for i in range(int(1e3)):
-    for i in range(1):
-        buffer = run_an_episode(env, sender, receiver, config, device, pls_render=False)
-    print(time.time() - t0)
+    #     buffer = run_an_episode(env, sender, receiver, config, device, pls_render=False)
+    # print(time.time() - t0)
+
+    buffer = buffer_class()
+    run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
+
+    assert torch.cat(buffer.data[buffer.name_dict['obs_sender']][1:]).equal(
+        torch.cat(buffer.data[buffer.name_dict['obs_sender_next']][:-1]))
+    assert buffer.data[buffer.name_dict['message']][1:] == buffer.data[buffer.name_dict['message_next']][:-1]
+    assert buffer.data[buffer.name_dict['obs_and_message_receiver']][1:] == buffer.data[buffer.name_dict[
+        'obs_and_message_receiver_next']][:-1]
+    ri = buffer.data[buffer.name_dict['ri']]
+    batch = buffer.sample_a_batch(33)
+    ri2 = batch.data[batch.name_dict['ri']]
+
+    phi = buffer.data[buffer.name_dict['phi']]
+
+    temp_grad = torch.autograd.grad(torch.sum(phi[0]), list(sender.signaling_net.parameters()), retain_graph=True)
 
     print('all done.')

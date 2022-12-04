@@ -7,7 +7,17 @@ def generate_receiver_obs_and_message(obs_receiver, message):
     # receiver position, message(apple position)
 
     obs_receiver_position = obs_receiver[:, 1, :, :].unsqueeze(dim=1)
-    obs_and_message_receiver  = torch.cat([obs_receiver_position, message],dim=1)
+    obs_and_message_receiver = torch.cat([obs_receiver_position, message], dim=1)
+
+    return obs_and_message_receiver
+
+
+def generate_receiver_obs_and_message_counterfactual(obs_and_message_receiver, counterfactual_message):
+    # receiver position, message(apple position)
+    # receiver position, counterfactual message(apple position)
+
+    obs_receiver_position = obs_and_message_receiver[:, 0, :, :].unsqueeze(dim=1)
+    obs_and_message_receiver = torch.cat([obs_receiver_position, counterfactual_message], dim=1)
 
     return obs_and_message_receiver
 
