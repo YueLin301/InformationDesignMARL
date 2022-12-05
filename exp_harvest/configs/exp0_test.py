@@ -53,7 +53,7 @@ config.receiver.entropy_coe = 1e-4
 config.train = ConfigDict()
 config.train.n_episodes = 10
 config.train.period = 5  # 多久保存一次
-config.train.buffer_size = 50
+config.train.batch_size = 50
 
 # ==================================================
 # 暂时不怎么需要改的

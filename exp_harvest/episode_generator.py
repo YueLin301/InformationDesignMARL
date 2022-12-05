@@ -33,11 +33,14 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         observations_next = obs_list_totorch(observations_next_np, device)
 
         half_transition = [observations[sender.id], message, phi.unsqueeze(dim=0), obs_and_message_receiver, a_sender,
-                           pi_sender, a_receiver, pi_receiver, rewards[sender.id], rewards[receiver.id]]
-        if not done:
+                           pi_sender, a_receiver, pi_receiver,
+                           torch.tensor(rewards[sender.id], dtype=torch.double).to(device).unsqueeze(dim=0),
+                           torch.tensor(rewards[receiver.id], dtype=torch.double).to(device).unsqueeze(dim=0)]
+        half_transition_clone = [half_transition[i].clone() for i in range(len(half_transition))]
+        if not done:  # the last transition
             buffer.add_half_transition(half_transition, '1st')
-        if step:
-            buffer.add_half_transition(half_transition, '2nd')
+        if step:  # the first transition
+            buffer.add_half_transition(half_transition_clone, '2nd')
 
         step += 1
         if pls_render:

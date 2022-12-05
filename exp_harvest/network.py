@@ -23,6 +23,9 @@ class net_base(nn.Module):
         self.belongto = belongto
         self.name = name
         self.checkpoint_file = os.path.join(config.path.saved_models, config.main.exp_name, belongto, name)
+        # print(os.getcwd())
+        if not os.path.exists(os.path.join(config.path.saved_models, config.main.exp_name, belongto)):
+            os.makedirs(os.path.join(config.path.saved_models, config.main.exp_name, belongto), exist_ok=True)
 
         self.device = device
         self.to(self.device)
@@ -43,9 +46,7 @@ class actor(net_base):
         super(actor, self).__init__(n_channels, config, belongto, name=name, device=device)
 
         self.action_dim = config.env.dim_action
-        self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double),
-                                          nn.ReLU(),
-                                          nn.Linear(config.nn.hidden_width, self.action_dim, dtype=torch.double), )
+        self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, self.action_dim, dtype=torch.double), )
         self.softmax = nn.Softmax(dim=-1)
 
         self.device = device
@@ -67,9 +68,7 @@ class critic(net_base):
         super(critic, self).__init__(input_n_channels, config, belongto, name=name, device=device)
 
         self.action_dim = config.env.dim_action
-        self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double),
-                                          nn.ReLU(),
-                                          nn.Linear(config.nn.hidden_width, output_dims, dtype=torch.double))
+        self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, output_dims, dtype=torch.double))
 
         self.device = device
         self.to(self.device)
@@ -97,7 +96,6 @@ class signaling_net(net_base):
         self.output_dim = self.message_height * self.message_width * 2
 
         self.output_layer_logits = nn.Sequential(
-            nn.Linear(config.nn.hidden_width, config.nn.hidden_width, dtype=torch.double), nn.ReLU(),
             nn.Linear(config.nn.hidden_width, self.output_dim, dtype=torch.double),
         )
 

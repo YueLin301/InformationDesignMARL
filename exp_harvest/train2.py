@@ -33,11 +33,36 @@ def train(env, sender, receiver, config, device):
         if config.train.batch_size <= buffer.data_size:
             batch = buffer.sample_a_batch(batch_size=config.train.batch_size)
 
-            # update_vars_sender = sender.calculate_for_updating(batch)
-            update_vars_receiver = receiver.calculate_for_updating(batch)
+            obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+            aj = batch.data[batch.name_dict['aj']]
+            pij = batch.data[batch.name_dict['pij']]
 
-            # sender.update(*update_vars_sender)
-            receiver.update(*update_vars_receiver)
+            critic = receiver.critic_Qj
+            input_critic = obs_and_message_receiver
+            a = aj
+            pi = pij
+
+            q_table = critic(input_critic)
+            q = q_table[range(len(a)), a]
+            v = receiver.calculate_v_foractor(critic, input_critic, pi)
+            advantage = q - v
+            pi_a = pi[range(len(a)), a]
+            actor_obj = advantage.detach() * torch.log(pi_a)
+            actor_obj_mean = torch.mean(actor_obj)
+
+            net_optimizer = receiver.actor_optimizer
+            obj = actor_obj_mean
+            net = receiver.actor
+
+            net_optimizer.zero_grad()
+            net_grad = torch.autograd.grad(obj, list(net.parameters()), retain_graph=True)
+            net_params = list(net.parameters())
+            for layer in range(len(net_params)):
+                net_params[layer].grad = - net_grad[layer]
+                net_params[layer].grad.data.clamp_(-1, 1)
+            net_optimizer.step()
+
+            buffer.reset()
 
         if not i_episode % config.train.n_episodes:
             completion_rate = i_episode / config.train.n_episodes
