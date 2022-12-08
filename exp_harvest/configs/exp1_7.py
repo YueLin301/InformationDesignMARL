@@ -7,7 +7,7 @@ default_dim_action = 5
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp0_test'
+config.main.exp_name = 'exp1_7'
 
 # ==================================================
 config.env = ConfigDict()
@@ -51,8 +51,8 @@ config.receiver.entropy_coe = 1e-4
 # ==================================================
 
 config.train = ConfigDict()
-config.train.n_episodes = 10
-config.train.period = 5  # 多久保存一次
+config.train.n_episodes = 50000
+config.train.period = 500  # 多久保存一次
 config.train.batch_size = 49
 
 # ==================================================

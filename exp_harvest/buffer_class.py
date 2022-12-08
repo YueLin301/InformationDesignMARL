@@ -1,8 +1,7 @@
 import random
 import torch
 
-name_cur = ['obs_sender', 'message', 'phi', 'obs_and_message_receiver',
-            'ai', 'pii', 'aj', 'pij', 'ri', 'rj', ]
+name_cur = ['obs_sender', 'message', 'obs_and_message_receiver', 'ai', 'aj', 'ri', 'rj', ]
 name_next = [item + '_next' for item in name_cur]
 name = name_cur + name_next
 len_name = len(name)
@@ -41,7 +40,6 @@ class buffer_class(object):
     def sample_a_batch(self, batch_size):
         assert batch_size <= self.data_size
         idx = random.sample(list(range(self.data_size)), batch_size)
-        # idx = list(range(self.data_size - 49, self.data_size))
         batch_data = []
         for i in self.data:
             item_tensor = torch.cat(i)

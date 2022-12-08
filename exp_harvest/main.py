@@ -1,30 +1,22 @@
-import matplotlib.pyplot as plt
-from exp_harvest.harvest_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
+import torch
 from exp_harvest.train import train, set_Env_and_Agents
+from exp_harvest.harvest_utils import set_seed
 
-from exp_harvest.configs.exp0_test import config
+from exp_harvest.configs.exp1_7 import config
 
 
-def main(config, seeds_num=10):
-    canvas = plot_create_canvas()
-    for myseed in range(seeds_num):
-        set_seed(myseed)
+def main(config, myseed=0):
+    set_seed(myseed)
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    print(device)
 
-        env, pro, hr = set_Env_and_Agents(config)
+    env, sender, receiver = set_Env_and_Agents(config, device)
 
-        print_params(pro, hr)
-        validate(pro, hr)
+    train(env, sender, receiver, config, device)
 
-        fake_buffer = train(config, env, pro, hr)
-
-        print_params(pro, hr)
-        validate(pro, hr)
-        plot_all(fake_buffer, *canvas)
     print('----------------------------------------')
     print('All done.')
 
-    plt.show()
-
 
 if __name__ == '__main__':
-    main(config, seeds_num=1)
+    main(config, myseed=0)

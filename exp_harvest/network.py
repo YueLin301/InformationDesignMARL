@@ -104,6 +104,6 @@ class signaling_net(net_base):
 
     def forward(self, x):
         y = super(signaling_net, self).forward(x)
-        logits = self.output_layer_logits(y).view(self.output_dim // 2, 2)
+        logits = self.output_layer_logits(y).view(x.shape[0], self.output_dim // 2, 2)
         phi = torch.softmax(logits, dim=-1)
         return phi
