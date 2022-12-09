@@ -1,16 +1,16 @@
 import wandb
-from env.harvest import Env
-from exp_harvest.agent_class import sender_class, receiver_class
-from exp_harvest.episode_generator import run_an_episode
-from exp_harvest.buffer_class import buffer_class
-from exp_harvest.harvest_utils import plot_with_wandb, init_wandb
+from exp_reaching_goals.agent_class import sender_class, receiver_class
+from exp_reaching_goals.episode_generator import run_an_episode
+from exp_reaching_goals.buffer_class import buffer_class
+from exp_reaching_goals.reaching_goals_utils import plot_with_wandb, init_wandb
+from env.reaching_goals import reaching_goals_env
 
 
 def set_Env_and_Agents(config, device):
     print('----------------------------------------')
     print('Setting agents and env.')
 
-    env = Env(config_env=config.env)
+    env = reaching_goals_env(config.env)
     sender = sender_class(config=config, device=device)
     receiver = receiver_class(config=config, device=device)
 
@@ -44,7 +44,7 @@ def train(env, sender, receiver, config, device, using_wandb=False):
 
         buffer.reset()
 
-        if not i_episode % config.train.period:
+        if not i_episode % config.train.n_episodes:
             completion_rate = i_episode / config.train.period
             print('Task completion:\t{:.1%}'.format(completion_rate))
             sender.save_models()
