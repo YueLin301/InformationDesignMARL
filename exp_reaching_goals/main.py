@@ -11,11 +11,15 @@ def main(config, myseed=0):
 
     env, sender, receiver = set_Env_and_Agents(config, device)
 
-    train(env, sender, receiver, config, device)
+    train(env, sender, receiver, config, device, using_wandb=True)
 
     print('----------------------------------------')
     print('All done.')
 
 
 if __name__ == '__main__':
+    import time
+
+    t0 = time.time()
     main(config, myseed=0)
+    print('time:', time.time() - t0)

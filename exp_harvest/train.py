@@ -45,7 +45,7 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         buffer.reset()
 
         if not i_episode % config.train.period:
-            completion_rate = i_episode / config.train.period
+            completion_rate = i_episode / config.train.n_episodes
             print('Task completion:\t{:.1%}'.format(completion_rate))
             sender.save_models()
             receiver.save_models()

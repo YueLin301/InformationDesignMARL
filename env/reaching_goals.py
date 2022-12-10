@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 class reaching_goals_env(object):
     def __init__(self, config):
         assert config.map_height % 2 and config.map_width % 2
-        self.map_height, self.map_width, self.max_step, self.aligned_object = config.map_height, config.map_width, config.max_step, config.aligned_object
+        self.map_height, self.map_width, self.max_step, self.aligned_object, self.bounded = config.map_height, config.map_width, config.max_step, config.aligned_object, config.bounded
 
         self.color_map = {
             'agent': [20, 20, 220],  # blue
@@ -45,7 +45,7 @@ class reaching_goals_env(object):
             state = torch.cat([self.agent_channel.unsqueeze(dim=0),
                                self.sender_apple_channel.unsqueeze(dim=0),
                                self.receiver_apple_channel.unsqueeze(dim=0), ])
-        return state
+        return state.unsqueeze(dim=0)
 
     def generate_map(self):
         self.map_color = self.generate_color_channels(self.agent_channel, self.color_map['agent']) \
@@ -77,46 +77,66 @@ class reaching_goals_env(object):
 
         return apple_position, apple_channel, apple_channel_np
 
-    def render(self):
+    def render(self, message_pos=None, filename=None, ):
+        plt.clf()
         self.generate_map()
         plt.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
-        plt.draw()
-        plt.pause(0.01)
-
+        if not message_pos is None:
+            plt.plot(int(message_pos[0].int()), int(message_pos[1].int()), marker='o', markersize=20, color='pink')
+        if filename is None:
+            plt.draw()
+            plt.pause(0.1)
+        else:
+            plt.savefig(filename)
         return
+
+    def check_reached(self, type):
+        assert type in ['sender', 'receiver']
+        if type == 'sender':
+            flag = self.agent_position[0] == self.sender_apple_position[0] and self.agent_position[1] == \
+                   self.sender_apple_position[1]
+        else:
+            flag = self.agent_position[0] == self.receiver_apple_position[0] and self.agent_position[1] == \
+                   self.receiver_apple_position[1]
+        return flag
 
     def step(self, action):
         delta_pos = self.action_to_delta_pos_map[action]
         self.agent_position[0] = self.agent_position[0] + delta_pos[0]
         self.agent_position[1] = self.agent_position[1] + delta_pos[1]
 
-        # loop
-        if self.agent_position[0] < 0:
-            self.agent_position[0] = self.agent_position[0] + self.map_width
-        if self.agent_position[0] >= self.map_width:
-            self.agent_position[0] = self.agent_position[0] - self.map_width
+        if not self.bounded:
+            if self.agent_position[0] < 0:
+                self.agent_position[0] = self.agent_position[0] + self.map_width
+            if self.agent_position[0] >= self.map_width:
+                self.agent_position[0] = self.agent_position[0] - self.map_width
 
-        if self.agent_position[1] < 0:
-            self.agent_position[1] = self.agent_position[1] + self.map_height
-        if self.agent_position[1] >= self.map_height:
-            self.agent_position[1] = self.agent_position[1] - self.map_height
+            if self.agent_position[1] < 0:
+                self.agent_position[1] = self.agent_position[1] + self.map_height
+            if self.agent_position[1] >= self.map_height:
+                self.agent_position[1] = self.agent_position[1] - self.map_height
+        else:
+            if self.agent_position[0] < 0 or self.agent_position[0] >= self.map_width:
+                self.agent_position[0] = self.agent_position[0] - delta_pos[0]
+            if self.agent_position[1] < 0 or self.agent_position[1] >= self.map_height:
+                self.agent_position[1] = self.agent_position[1] - delta_pos[1]
 
         self.agent_channel = torch.zeros(self.map_height, self.map_width, dtype=torch.double)
         self.agent_channel[self.agent_position[0], self.agent_position[1]] = 1
         self.agent_channel_np = np.array(self.agent_channel)
 
-        if self.agent_position[0] == self.receiver_apple_position[0] and self.agent_position[1] == \
-                self.receiver_apple_position[1]:
+        if self.check_reached('receiver'):
             receiver_reward = 1
-            self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
+            while self.check_reached('receiver'):
+                self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
         else:
             receiver_reward = 0
 
-        if self.agent_position[0] == self.sender_apple_position[0] and self.agent_position[1] == \
-                self.sender_apple_position[1]:
+        if self.check_reached('sender'):
             sender_reward = 1
             if not self.aligned_object:
-                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+                while self.check_reached('sender'):
+                    self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
             else:
                 self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         else:
@@ -135,7 +155,7 @@ class reaching_goals_env(object):
             state = torch.cat([self.agent_channel.unsqueeze(dim=0),
                                self.sender_apple_channel.unsqueeze(dim=0),
                                self.receiver_apple_channel.unsqueeze(dim=0), ])
-        return state, [sender_reward, receiver_reward], done
+        return state.unsqueeze(dim=0), [sender_reward, receiver_reward], done
 
 
 def human_play(config):
@@ -146,17 +166,17 @@ def human_play(config):
     env.render()
 
     a_map = {
-        8: 0,
-        5: 1,
-        4: 2,
-        6: 3
+        'w': 0,
+        's': 1,
+        'a': 2,
+        'd': 3
     }
 
     done = False
     while not done:
-        a = sys.stdin.readline()
+        a = sys.stdin.readline().rstrip()
 
-        state, [rs, rr], done = env.step(a_map[int(a)])
+        state, [rs, rr], done = env.step(a_map[a])
         print(rs, rr, done)
         env.render()
 
@@ -188,6 +208,7 @@ if __name__ == '__main__':
     config.map_width = 7
     config.max_step = 50
     config.aligned_object = True
+    config.bounded = True
 
     human_play(config)
 

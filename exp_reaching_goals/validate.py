@@ -14,8 +14,8 @@ if __name__ == '__main__':
     sender = sender_class(config=config, device=device)
     receiver = receiver_class(config=config, device=device)
 
-    sender.load_models()
-    receiver.load_models()
+    # sender.load_models()
+    # receiver.load_models()
 
     buffer = buffer_class()
     run_an_episode(env, sender, receiver, config, device, pls_render=True, buffer=buffer)

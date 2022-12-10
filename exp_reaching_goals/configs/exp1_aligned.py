@@ -8,16 +8,20 @@ config.main.exp_name = 'exp1_aligned'
 
 # ==================================================
 config.env = ConfigDict()
-config.env.map_height = 7
-config.env.map_width = 7
+config.env.map_height = 5
+config.env.map_width = 5
 config.env.max_step = 50
 config.env.aligned_object = True
+config.env.dim_action = 4
+config.env.bounded = True
 
 # ==================================================
 config.train = ConfigDict()
 config.train.batch_size = config.env.max_step - 1
 config.train.n_episodes = 50000
-config.train.period = 500
+config.train.period = 200
+# config.train.n_episodes = 50
+# config.train.period = 25
 
 # ==================================================
 config.path = ConfigDict()
@@ -34,7 +38,7 @@ config.sender.lr_critic_Gi = 1e-3
 config.sender.lr_critic_Gj = 1e-3
 config.sender.lr_signal = 1e-3
 config.sender.gamma = 0.99
-config.sender.sender_objective_alpha = 0.2
+config.sender.sender_objective_alpha = 0
 config.sender.coe_for_recovery_fromgumbel = 1  # TODO
 
 # ==================================================

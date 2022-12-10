@@ -25,26 +25,6 @@ def init_wandb():
     return chart_name_list
 
 
-def generate_receiver_obs_and_message(obs_receiver, message):
-    # sender position, receiver position, apple position
-    # receiver position, message(apple position)
-
-    obs_receiver_position = obs_receiver[:, 1, :, :].unsqueeze(dim=1)
-    obs_and_message_receiver = torch.cat([obs_receiver_position, message], dim=1)
-
-    return obs_and_message_receiver
-
-
-def generate_receiver_obs_and_message_counterfactual(obs_and_message_receiver, counterfactual_message):
-    # receiver position, message(apple position)
-    # receiver position, counterfactual message(apple position)
-
-    obs_receiver_position = obs_and_message_receiver[:, 0, :, :].unsqueeze(dim=1)
-    obs_and_message_receiver = torch.cat([obs_receiver_position, counterfactual_message], dim=1)
-
-    return obs_and_message_receiver
-
-
 def flatten_layers(gradtensor, dim=0):
     gradtensor_flatten = torch.flatten(gradtensor[0])
     for layerl in range(1, len(gradtensor)):

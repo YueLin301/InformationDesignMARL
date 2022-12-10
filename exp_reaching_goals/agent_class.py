@@ -1,6 +1,8 @@
 import torch
-from exp_reaching_goals.reaching_goals_utils import flatten_layers, generate_receiver_obs_and_message_counterfactual
+from exp_reaching_goals.reaching_goals_utils import flatten_layers
 from exp_reaching_goals.network import actor, critic, signaling_net
+
+import numpy as np
 
 
 def calculate_critic_loss(critic, target_critic, loss_criterion, r, input, a, input_next, a_next, gamma):
@@ -39,10 +41,13 @@ class sender_class(object):
         self.id = id
         self.dim_action = dim_action = config.env.dim_action
 
+        # Gi(s,aj)
         self.critic_Gi = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gi',
                                 device=device)
+        # Gi(s,aj)
         self.critic_Gj = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gj',
                                 device=device)
+        # phi(sigma|s)
         self.signaling_net = signaling_net(config, device=device)
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
@@ -59,7 +64,6 @@ class sender_class(object):
         self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
         self.temperature = 1
-        self.message_table = torch.tensor([0, 1], dtype=torch.double).to(self.device)  # from onehot to 1
 
     def build_connection(self, receiver):
         self.receiver = receiver
@@ -69,23 +73,12 @@ class sender_class(object):
         rj = batch.data[batch.name_dict['rj']]
         obs_sender = batch.data[batch.name_dict['obs_sender']]
         obs_sender_next = batch.data[batch.name_dict['obs_sender_next']]
-
-        message = batch.data[batch.name_dict['message']]
-        obs_and_message_sender = torch.cat([obs_sender, message], dim=1)
-
-        message_next = batch.data[batch.name_dict['message_next']]
-        obs_and_message_sender_next = torch.cat([obs_sender_next, message_next], dim=1)
-
-        ai = batch.data[batch.name_dict['ai']]
-        ai_next = batch.data[batch.name_dict['ai_next']]
-        aj = batch.data[batch.name_dict['aj']]
-        aj_next = batch.data[batch.name_dict['aj_next']]
-        a_idx = ai * self.dim_action + aj
-        a_idx_next = ai_next * self.dim_action + aj_next
+        aj = batch.data[batch.name_dict['a']]
+        aj_next = batch.data[batch.name_dict['a_next']]
 
         critic_loss_Gi = calculate_critic_loss(self.critic_Gi, self.target_critic_Gi, self.critic_loss_criterion,
-                                               ri, input=obs_sender, a=a_idx, input_next=obs_sender_next,
-                                               a_next=a_idx_next, gamma=self.config.sender.gamma)
+                                               ri, input=obs_sender, a=aj, input_next=obs_sender_next, a_next=aj_next,
+                                               gamma=self.config.sender.gamma)
         critic_loss_Gj = calculate_critic_loss(self.critic_Gj, self.target_critic_Gj, self.critic_loss_criterion,
                                                rj, input=obs_sender, a=aj, input_next=obs_sender_next, a_next=aj_next,
                                                gamma=self.config.sender.gamma)
@@ -101,21 +94,11 @@ class sender_class(object):
 
     def calculate_for_updating(self, batch):
         critic_loss_Gi, critic_loss_Gj = self.calculate_2critics_loss(batch)
-
-        # critic, input_critic, a, pi
-        # input_critic <= s, sigma, ai
-        obs_sender = batch.data[batch.name_dict['obs_sender']]
-        message = batch.data[batch.name_dict['message']]
-        obs_and_message_sender = torch.cat([obs_sender, message], dim=1)
-        ai = batch.data[batch.name_dict['ai']]
-        # pii = batch.data[batch.name_dict['pii']]
-        _, pii = self.choose_action(obs_and_message_sender)
-
         gradeta = self.calculate_gradeta(batch)
 
-        return critic_loss_Gi, critic_loss_Gj
+        return critic_loss_Gi, critic_loss_Gj, gradeta
 
-    def update(self, critic_loss_Gi, critic_loss_Gj, actor_obj_mean, entropy, gradeta):
+    def update(self, critic_loss_Gi, critic_loss_Gj, gradeta):
 
         grad_and_step(self.critic_Gi, self.critic_Gi_optimizer, critic_loss_Gi, 'descent')
         grad_and_step(self.critic_Gj, self.critic_Gj_optimizer, critic_loss_Gj, 'descent')
@@ -135,68 +118,54 @@ class sender_class(object):
         sample = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
 
         batch_size = len(obs)
-        message_flatten = torch.einsum('i,kji->kj', self.message_table, sample)
-        message = message_flatten.view(batch_size, 1, self.config.env.obs_height, self.config.env.obs_width)
+        message = sample.view(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
 
         # for tuning config.pro.coe_for_recovery_fromgumbel
-        # temp11 = torch.autograd.grad(phi_current[0, 0], list(self.signaling_net.parameters()), retain_graph=True)
-        # temp12 = torch.autograd.grad(phi_current[0, 1], list(self.signaling_net.parameters()), retain_graph=True)
-        # temp2 = torch.autograd.grad(message[0], phi_current, retain_graph=True)
-        # temp5 = torch.autograd.grad(message[0], list(self.signaling_net.parameters()), retain_graph=True)
+        # temp1 = torch.autograd.grad(torch.mean(phi), list(self.signaling_net.parameters()), retain_graph=True)
+        # temp2 = torch.autograd.grad(torch.mean(message), phi, retain_graph=True)
+        # temp3 = torch.autograd.grad(torch.mean(message), list(self.signaling_net.parameters()), retain_graph=True)
 
         return message, phi
 
     def calculate_gradeta(self, batch):
         obs_sender = batch.data[batch.name_dict['obs_sender']]
-        # phi = batch.data[batch.name_dict['phi']]
-        _, phi = self.send_message(obs_sender)
+        phi = batch.data[batch.name_dict['phi']]
         sigma = message = batch.data[batch.name_dict['message']]
-        obs_and_message_sender = torch.cat([obs_sender, message], dim=1)
-
-        phi_flatten = phi.view(-1, phi.shape[-1])
-        sigma_flatten = torch.flatten(sigma).long()
-        phi_sigma_flatten = phi_flatten[range(len(sigma_flatten)), sigma_flatten]
-        phi_sigma = phi_sigma_flatten.view(phi.shape[:-1])
-
-        ai = batch.data[batch.name_dict['ai']]
-        aj = batch.data[batch.name_dict['aj']]
-
-        # pii = batch.data[batch.name_dict['pii']]
-        # pij = batch.data[batch.name_dict['pij']]
-        _, pii = self.choose_action(obs_and_message_sender)
-        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-        _, pij = self.receiver.choose_action(obs_and_message_receiver)
-
-        pii_ai = pii[range(len(ai)), ai]
+        sigma_flatten = sigma.view(sigma.shape[0], -1)
+        phi_sigma = torch.sum(phi * sigma_flatten, dim=-1)  # indexed by onehot
+        aj = batch.data[batch.name_dict['a']]
+        pij = batch.data[batch.name_dict['pi']]
         pij_aj = pij[range(len(aj)), aj]
 
         ''' SG (Signaling Gradient) '''
-        # s, ai, aj
+        # s, aj
         Gi_table = self.critic_Gi(obs_sender)
-        a_idx = self.config.env.dim_action * ai + aj
-        Gi = Gi_table[range(len(a_idx)), a_idx]
+        Gi = Gi_table[range(len(aj)), aj]
 
         log_phi_sigma = torch.log(phi_sigma)
-        log_phi_sigma_sum = torch.sum(log_phi_sigma, dim=1)
-
-        log_pii_ai = torch.log(pii_ai)
         log_pij_aj = torch.log(pij_aj)
 
         # tuning for gumbel-softmax
-        term = torch.mean(Gi.detach() * (log_phi_sigma_sum
-                                         + log_pii_ai
-                                         + log_pij_aj))
+        term = torch.mean(Gi.detach() * (log_phi_sigma
+                                         + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
 
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 
         ''' BCE Obedience Constraint (Lagrangian) '''
-        sigma_counterfactual = torch.round(torch.rand_like(sigma))  # negative sampling
-        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-        obs_and_message_counterfactual_receiver = generate_receiver_obs_and_message_counterfactual(
-            obs_and_message_receiver, sigma_counterfactual)
-
-        _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
+        batch_len = aj.shape[0]
+        sigma_counterfactual_index_flatten = torch.randint(self.config.env.map_height * self.config.env.map_width,
+                                                           size=(batch_len,)).to(self.device)  # negative sampling
+        sigma_counterfactual_index = [
+            torch.floor(sigma_counterfactual_index_flatten / self.config.env.map_height).long().unsqueeze(dim=0),
+            (sigma_counterfactual_index_flatten % self.config.env.map_width).unsqueeze(dim=0)]
+        sigma_counterfactual_index = torch.cat(sigma_counterfactual_index).to(self.device)
+        sigma_counterfactual = torch.zeros(batch_len, self.config.env.map_height, self.config.env.map_width,
+                                           dtype=torch.double).to(self.device)
+        sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
+        # sigma_counterfactual_np = np.array(sigma_counterfactual)
+        sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
+        _, pij_counterfactual = self.receiver.choose_action(sigma_counterfactual)
 
         # s, aj
         Gj_table = self.critic_Gj(obs_sender)
@@ -263,19 +232,17 @@ class receiver_class(object):
 
         self.dim_action = dim_action = config.env.dim_action
 
-        # obs_receiver, sigma, aj
-        self.critic_Qj = critic(config.n_channels.obs_receiver + config.n_channels.message, dim_action, config,
-                                belongto=name, device=device)
+        self.critic_Qj = critic(config.n_channels.message, dim_action, config, belongto=name, device=device)
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_Qj_optimizer = torch.optim.Adam(self.critic_Qj.parameters(), config.receiver.lr_critic_Gj)
 
-        self.actor = actor(config.n_channels.message, config, belongto=type, device=device)
+        self.actor = actor(config.n_channels.message, config, belongto=name, device=device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.receiver.lr_actor)
         self.gamma = config.receiver.gamma
 
-        self.target_critic_Qj = critic(config.n_channels.obs_receiver + config.n_channels.message, dim_action, config,
-                                       belongto=name, name='target_critic', device=device)
+        self.target_critic_Qj = critic(config.n_channels.message, dim_action, config, belongto=name,
+                                       name='target_critic', device=device)
         self.target_critic_Qj.load_state_dict(self.critic_Qj.state_dict())
 
     def build_connection(self, sender):
@@ -306,22 +273,22 @@ class receiver_class(object):
 
     def calculate_for_updating(self, batch):
         rj = batch.data[batch.name_dict['rj']]
-        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-        obs_and_message_receiver_next = batch.data[batch.name_dict['obs_and_message_receiver_next']]
-        aj = batch.data[batch.name_dict['aj']]
-        aj_next = batch.data[batch.name_dict['aj_next']]
+        message = batch.data[batch.name_dict['message']]
+        message_next = batch.data[batch.name_dict['message_next']]
+        aj = batch.data[batch.name_dict['a']]
+        aj_next = batch.data[batch.name_dict['a_next']]
 
         critic_loss_Qj = calculate_critic_loss(self.critic_Qj, self.target_critic_Qj,
                                                self.critic_loss_criterion, r=rj,
-                                               input=obs_and_message_receiver, a=aj,
-                                               input_next=obs_and_message_receiver_next,
+                                               input=message, a=aj,
+                                               input_next=message_next,
                                                a_next=aj_next,
                                                gamma=self.gamma)
 
         # critic, input_critic, a, pi
         # pij = batch.data[batch.name_dict['pij']]
-        _, pij = self.choose_action(obs_and_message_receiver)
-        actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_Qj, obs_and_message_receiver, aj, pij)
+        _, pij = self.choose_action(message)
+        actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_Qj, message, aj, pij)
 
         return critic_loss_Qj, actor_obj_mean, entropy
 
