@@ -3,7 +3,7 @@ import os.path
 from agent_class import sender_class, receiver_class
 # from exp_reaching_goals.reaching_goals_utils import obs_list_totorch
 from exp_reaching_goals.buffer_class import buffer_class
-from exp_reaching_goals.configs.exp1_aligned import config
+from exp_reaching_goals.configs.exp3_aligned import config
 
 from env.reaching_goals import reaching_goals_env
 
@@ -12,7 +12,8 @@ import imageio
 
 def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
     done = False
-    obs_sender = env.reset().to(device)
+    state = env.reset().to(device)
+    obs_sender = state if not config.sender.regradless_agent_pos else state[:, 1:, :, :]
 
     step = 0
     if pls_render:
@@ -20,19 +21,29 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         env.render(filename=filename)
     while not done:
 
-        message, phi = sender.send_message(obs_sender)
+        if not config.sender.honest:
+            message, phi = sender.send_message(obs_sender)
+        else:
+            message, phi = obs_sender, None
+            if config.receiver.blind:
+                message = torch.zeros_like(message).to(device)
+
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(step))
-            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
-            env.render(message_pos, filename)
+            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:] if not config.sender.honest else None
+            env.render(message_pos=message_pos, filename=filename)
+
         a_receiver, pi = receiver.choose_action(message)
+        state_next, rewards, done = env.step(int(a_receiver))
+        obs_sender_next = state_next if not config.sender.regradless_agent_pos else state_next[:, 1:, :, :]
 
-        obs_sender_next, rewards, done = env.step(int(a_receiver))
+        reward_sender = torch.tensor(rewards[sender.id], dtype=torch.double).to(device).unsqueeze(
+            dim=0) if not config.sender.honest else None
+        reward_receiver = torch.tensor(rewards[receiver.id], dtype=torch.double).to(device).unsqueeze(dim=0)
 
-        half_transition = [obs_sender.to(device), message, phi, a_receiver, pi,
-                           torch.tensor(rewards[sender.id], dtype=torch.double).to(device).unsqueeze(dim=0),
-                           torch.tensor(rewards[receiver.id], dtype=torch.double).to(device).unsqueeze(dim=0)]
-        half_transition_clone = [half_transition[i].clone() for i in range(len(half_transition))]
+        half_transition = [obs_sender.to(device), message, phi, a_receiver, pi, reward_sender, reward_receiver]
+        half_transition_clone = [half_transition[i].clone() if not half_transition[i] is None else None for i in
+                                 range(len(half_transition))]
 
         if not done:  # the last transition
             buffer.add_half_transition(half_transition, '1st')
@@ -42,8 +53,8 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         step += 1
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(step))
-            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
-            env.render(message_pos, filename)
+            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:] if not config.sender.honest else None
+            env.render(message_pos=message_pos, filename=filename)
         obs_sender = obs_sender_next.to(device)
 
     if pls_render:
@@ -53,7 +64,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
             # img = imageio.v2.imread(filename)
             img = imageio.imread(filename)
             imgs.append(img)
-        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.5)
+        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.2)
 
     return
 

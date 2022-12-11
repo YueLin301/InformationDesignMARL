@@ -42,8 +42,11 @@ class buffer_class(object):
         idx = random.sample(list(range(self.data_size)), batch_size)
         batch_data = []
         for i in self.data:
-            item_tensor = torch.cat(i)
-            batch_data.append(item_tensor[idx].clone())
+            if not i[0] is None:
+                item_tensor = torch.cat(i)
+                batch_data.append(item_tensor[idx].clone())
+            else:
+                batch_data.append(None)
 
         batch = batch_class(batch_data)
         return batch

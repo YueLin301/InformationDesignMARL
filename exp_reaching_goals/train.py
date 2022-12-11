@@ -11,11 +11,12 @@ def set_Env_and_Agents(config, device):
     print('Setting agents and env.')
 
     env = reaching_goals_env(config.env)
-    sender = sender_class(config=config, device=device)
+    sender = sender_class(config=config, device=device) if not config.sender.honest else None
     receiver = receiver_class(config=config, device=device)
 
-    sender.build_connection(receiver)
-    receiver.build_connection(sender)
+    if not config.sender.honest:
+        sender.build_connection(receiver)
+        receiver.build_connection(sender)
 
     return env, sender, receiver
 
@@ -25,7 +26,7 @@ def train(env, sender, receiver, config, device, using_wandb=False):
     print('Training.')
 
     if using_wandb:
-        chart_name_list = init_wandb()
+        chart_name_list = init_wandb(sender_honest=config.sender.honest)
 
     i_episode = 0
     buffer = buffer_class()
@@ -33,13 +34,14 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
         batch = buffer.sample_a_batch(batch_size=config.train.batch_size)
         if using_wandb:
-            plot_with_wandb(chart_name_list, batch)
+            plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
         i_episode += 1
 
-        update_vars_sender = sender.calculate_for_updating(batch)
+        update_vars_sender = sender.calculate_for_updating(batch) if not config.sender.honest else None
         update_vars_receiver = receiver.calculate_for_updating(batch)
 
-        sender.update(*update_vars_sender)
+        if not config.sender.honest:
+            sender.update(*update_vars_sender)
         receiver.update(*update_vars_receiver)
 
         buffer.reset()
@@ -47,7 +49,8 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         if not i_episode % config.train.period:
             completion_rate = i_episode / config.train.n_episodes
             print('Task completion:\t{:.1%}'.format(completion_rate))
-            sender.save_models()
+            if not config.sender.honest:
+                sender.save_models()
             receiver.save_models()
 
     return

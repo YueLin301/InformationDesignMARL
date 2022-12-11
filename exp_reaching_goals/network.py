@@ -89,12 +89,11 @@ class signaling_net(net_base):
         super(signaling_net, self).__init__(self.n_channels, config, belongto='sender', name=name,
                                             device=device)
 
-        self.message_height = config.env.map_height
-        self.message_width = config.env.map_width
+        self.message_height, self.message_width = config.env.map_height, config.env.map_width
 
-        # logits of 0 or 1, for every pixel
-        self.output_dim = self.message_height * self.message_width
-
+        # not using gaussian: logits of 0 or 1, for every pixel
+        # using gaussian: mu(2 dims of the apple position)
+        self.output_dim = self.message_height * self.message_width if not config.sender.gaussian_distribution else 2
         self.output_layer_logits = nn.Sequential(
             nn.Linear(config.nn.hidden_width, self.output_dim, dtype=torch.double),
         )
@@ -104,6 +103,5 @@ class signaling_net(net_base):
 
     def forward(self, x):
         y = super(signaling_net, self).forward(x)
-        logits = self.output_layer_logits(y).view(x.shape[0], self.output_dim)
-        phi = torch.softmax(logits, dim=-1)
-        return phi
+        results = self.output_layer_logits(y).view(x.shape[0], self.output_dim)
+        return results

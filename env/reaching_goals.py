@@ -32,8 +32,13 @@ class reaching_goals_env(object):
     def reset(self):
         self.reset_agent()  # agent -> receiver
         self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
+        while self.check_reached('receiver'):
+            self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
+
         if not self.aligned_object:
             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+            while self.check_reached('receiver'):
+                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
         else:
             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         self.step_i = 0
@@ -100,6 +105,10 @@ class reaching_goals_env(object):
                    self.receiver_apple_position[1]
         return flag
 
+    def calculate_distance(self, pos1, pos2):
+        distance = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
+        return distance
+
     def step(self, action):
         delta_pos = self.action_to_delta_pos_map[action]
         self.agent_position[0] = self.agent_position[0] + delta_pos[0]
@@ -126,14 +135,16 @@ class reaching_goals_env(object):
         self.agent_channel_np = np.array(self.agent_channel)
 
         if self.check_reached('receiver'):
-            receiver_reward = 1
+            receiver_reward = 10
             while self.check_reached('receiver'):
                 self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
         else:
             receiver_reward = 0
+            receiver_reward = receiver_reward - self.calculate_distance(self.agent_position,
+                                                                        self.receiver_apple_position)
 
         if self.check_reached('sender'):
-            sender_reward = 1
+            sender_reward = 10
             if not self.aligned_object:
                 while self.check_reached('sender'):
                     self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
@@ -141,6 +152,7 @@ class reaching_goals_env(object):
                 self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         else:
             sender_reward = 0
+            sender_reward = sender_reward - self.calculate_distance(self.agent_position, self.sender_apple_position)
 
         self.step_i += 1
         if self.step_i >= self.max_step:
@@ -155,7 +167,8 @@ class reaching_goals_env(object):
             state = torch.cat([self.agent_channel.unsqueeze(dim=0),
                                self.sender_apple_channel.unsqueeze(dim=0),
                                self.receiver_apple_channel.unsqueeze(dim=0), ])
-        return state.unsqueeze(dim=0), [sender_reward, receiver_reward], done
+
+        return state.unsqueeze(dim=0), [int(sender_reward), int(receiver_reward)], done
 
 
 def human_play(config):

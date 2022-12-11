@@ -4,20 +4,23 @@ import wandb
 from exp_reaching_goals.mykey import wandb_login_key, wandb_project_name, wandb_entity_name
 
 
-def init_wandb():
+def init_wandb(sender_honest):
     wandb.login(key=wandb_login_key)
     wandb.init(project=wandb_project_name, entity=wandb_entity_name)
 
-    chart_name_list = ['reward_sender',
-                       'reward_receiver',
-                       'social_welfare',
-                       # 'TD_target_sender',
-                       # 'TD_target_receiver',
-                       # 'TD_error_sender',
-                       # 'TD_error_receiver',
-                       # 'critic_loss_sender',
-                       # 'critic_loss_receiver'
-                       ]
+    if not sender_honest:
+        chart_name_list = ['reward_sender',
+                           'reward_receiver',
+                           'social_welfare',
+                           # 'TD_target_sender',
+                           # 'TD_target_receiver',
+                           # 'TD_error_sender',
+                           # 'TD_error_receiver',
+                           # 'critic_loss_sender',
+                           # 'critic_loss_receiver'
+                           ]
+    else:
+        chart_name_list = ['reward_receiver']
 
     for chart_name in chart_name_list:
         wandb.define_metric(chart_name)
@@ -47,23 +50,24 @@ def obs_list_totorch(obs_listofnp, device):
     return obs_listoftorch
 
 
-def plot_with_wandb(chart_name_list, batch):
+def plot_with_wandb(chart_name_list, batch, sender_honest):
     entry = dict(zip(chart_name_list, [0] * len(chart_name_list)))
 
-    ri = batch.data[batch.name_dict['ri']]
-    ri_sum = float(torch.sum(ri))
     rj = batch.data[batch.name_dict['rj']]
     rj_sum = float(torch.sum(rj))
-    r_tot = ri + rj
-    r_tot_sum = float(torch.sum(r_tot))
+    if not sender_honest:
+        ri = batch.data[batch.name_dict['ri']]
+        ri_sum = float(torch.sum(ri))
+        r_tot = ri + rj
+        r_tot_sum = float(torch.sum(r_tot))
+        entry['reward_sender'] = ri_sum
+        entry['social_welfare'] = r_tot_sum
 
-    entry['reward_sender'] = ri_sum
     entry['reward_receiver'] = rj_sum
-    entry['social_welfare'] = r_tot_sum
-
     wandb.log(entry)
 
     return
+
 
 def set_seed(myseed):
     np.random.seed(myseed)  # numpy seed
