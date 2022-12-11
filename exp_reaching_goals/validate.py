@@ -5,7 +5,7 @@ import torch
 
 from env.reaching_goals import reaching_goals_env
 
-from exp_reaching_goals.configs.exp3_aligned import config
+from exp_reaching_goals.configs.exp1_aligned_honest import config
 
 if __name__ == '__main__':
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     buffer = buffer_class()
     run_an_episode(env, sender, receiver, config, device, pls_render=True, buffer=buffer)
 
-    batch = buffer.sample_a_batch(batch_size=config.train.batch_size)
+    batch = buffer.sample_a_batch(batch_size=buffer.data_size)
 
     rj = batch.data[batch.name_dict['rj']]
     rj_sum = float(torch.sum(rj))
@@ -31,7 +31,5 @@ if __name__ == '__main__':
         r_tot = ri + rj
         r_tot_sum = float(torch.sum(r_tot))
         print('ri:{}, rj:{}, sw:{}'.format(ri_sum, rj_sum, r_tot_sum))
-
-
 
     print('all done.')

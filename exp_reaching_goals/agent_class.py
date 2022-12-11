@@ -114,39 +114,24 @@ class sender_class(object):
 
     def send_message(self, obs):
         batch_size = len(obs)
-        if not self.config.sender.gaussian_distribution:
-            logits_forwarded = self.signaling_net(obs)
-            phi = torch.softmax(logits_forwarded, dim=-1)
-            logits = torch.log(phi)
-            sample = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
-            message = sample.view(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
-            return message, phi
-        else:
-            mu = self.signaling_net(obs)
-            var = torch.tensor(0.5, dtype=torch.double).to(self.device)
-            dist = torch.distributions.Normal(mu, var)
-            message = dist.rsample([1]).squeeze(dim=0)
-            phi_sigma = torch.exp(dist.log_prob(message))
-
-            message_rounded = torch.round(message)
-            message_final = torch.zeros(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
-            message_final[range(batch_size), 0, message_rounded[:, 0], message_rounded[:, 1]] = 1
-            return message_final, phi_sigma
+        phi = self.signaling_net(obs)
+        logits = torch.log(phi)
+        sample = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
+        message = sample.view(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
+        return message, phi
 
     def calculate_gradeta(self, batch):
         obs_sender = batch.data[batch.name_dict['obs_sender']]
         aj = batch.data[batch.name_dict['a']]
         pij = batch.data[batch.name_dict['pi']]
         pij_aj = pij[range(len(aj)), aj]
-        if not self.config.sender.gaussian_distribution:
-            phi = batch.data[batch.name_dict['phi']]
-            # phi_np = np.array(phi.detach())
-            sigma = message = batch.data[batch.name_dict['message']]
-            sigma_flatten = sigma.view(sigma.shape[0], -1)
-            idx_flatten = torch.nonzero(sigma_flatten)[:, 1]
-            phi_sigma = phi[range(idx_flatten.shape[0]), idx_flatten]
-        else:
-            phi_sigma = batch.data[batch.name_dict['phi']]
+
+        phi = batch.data[batch.name_dict['phi']]
+        # phi_np = np.array(phi.detach())
+        sigma = message = batch.data[batch.name_dict['message']]
+        sigma_flatten = sigma.view(sigma.shape[0], -1)
+        idx_flatten = torch.nonzero(sigma_flatten)[:, 1]
+        phi_sigma = phi[range(idx_flatten.shape[0]), idx_flatten]
 
         ''' SG (Signaling Gradient) '''
         # s, aj
@@ -159,7 +144,11 @@ class sender_class(object):
         # tuning for gumbel-softmax
         term = torch.mean(Gi.detach() * (log_phi_sigma
                                          + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
-
+        # term1 = torch.mean(Gi.detach() * log_phi_sigma)
+        # term2 = torch.mean(Gi.detach() * log_pij_aj)
+        # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
+        # gradeta2 = torch.autograd.grad(term2, list(self.signaling_net.parameters()), retain_graph=True)
+        
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 

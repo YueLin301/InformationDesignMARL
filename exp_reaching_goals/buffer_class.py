@@ -11,7 +11,8 @@ name_dict = dict(zip(name, range(len_name)))
 class buffer_class(object):
     def __init__(self):
         self.name, self.len_name, self.name_dict = name, len_name, name_dict
-        self.capacity = 300
+        # self.capacity = 200
+        self.capacity = 48
         self.reset()
 
     def reset(self):
@@ -32,14 +33,18 @@ class buffer_class(object):
                 self.data[i].append(half_transition[i - self.len_name // 2])
             self.data_size += 1
 
-        if self.data_size > self.capacity:
-            for i in range(len(self.data)):
-                self.data[i].pop(0)
-                self.data_size -= 1
+        # if self.data_size > self.capacity:
+        #     for i in range(len(self.data)):
+        #         self.data[i].pop(0)
+        #         self.data_size -= 1
 
-    def sample_a_batch(self, batch_size):
+    def sample_a_batch(self, batch_size, sample_the_last=False):
         assert batch_size <= self.data_size
-        idx = random.sample(list(range(self.data_size)), batch_size)
+        if not sample_the_last:
+            idx = random.sample(list(range(self.data_size)), batch_size)
+        else:
+            idx = list(range(self.data_size - batch_size, self.data_size))
+
         batch_data = []
         for i in self.data:
             if not i[0] is None:

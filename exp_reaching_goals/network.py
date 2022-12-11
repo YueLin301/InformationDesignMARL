@@ -90,18 +90,38 @@ class signaling_net(net_base):
                                             device=device)
 
         self.message_height, self.message_width = config.env.map_height, config.env.map_width
+        self.using_gaussian_distribution = config.sender.gaussian_distribution
+        self.gaussian_var = config.sender.gaussian_var if self.using_gaussian_distribution else None
 
         # not using gaussian: logits of 0 or 1, for every pixel
         # using gaussian: mu(2 dims of the apple position)
-        self.output_dim = self.message_height * self.message_width if not config.sender.gaussian_distribution else 2
+        self.output_dim = self.message_height * self.message_width if not self.using_gaussian_distribution else 2
         self.output_layer_logits = nn.Sequential(
             nn.Linear(config.nn.hidden_width, self.output_dim, dtype=torch.double),
         )
+
+        idxj = list(range(self.message_width))
+        self.idx = [list(zip([i] * self.message_width, idxj)) for i in range(self.message_height)]
+        self.grid_loc = torch.tensor(self.idx, dtype=torch.double).to(device).view(
+            self.message_height * self.message_width, -1)
 
         self.device = device
         self.to(self.device)
 
     def forward(self, x):
         y = super(signaling_net, self).forward(x)
-        results = self.output_layer_logits(y).view(x.shape[0], self.output_dim)
-        return results
+        if not self.using_gaussian_distribution:
+            logits = self.output_layer_logits(y).view(x.shape[0], self.output_dim)
+        else:
+            output = self.output_layer_logits(y).view(x.shape[0], self.output_dim)
+            mu0 = torch.sigmoid(output[:, 0]) * self.message_height
+            mu1 = torch.sigmoid(output[:, 1]) * self.message_width
+            mu = torch.cat([mu0, mu1], dim=-1)
+
+            var = torch.tensor([[self.gaussian_var, 0],
+                                [0, self.gaussian_var]], dtype=torch.double).to(self.device)
+            dist = torch.distributions.MultivariateNormal(mu, var)
+            logits = dist.log_prob(self.grid_loc.detach()).unsqueeze(dim=0)
+        phi = torch.softmax(logits, dim=-1)
+
+        return phi

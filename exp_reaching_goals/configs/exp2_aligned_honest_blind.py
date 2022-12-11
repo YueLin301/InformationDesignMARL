@@ -17,7 +17,6 @@ config.env.bounded = True
 
 # ==================================================
 config.train = ConfigDict()
-config.train.batch_size = config.env.max_step - 1
 config.train.n_episodes = 20000
 config.train.period = 200
 # config.train.n_episodes = 50

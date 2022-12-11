@@ -1,4 +1,5 @@
 import wandb
+import math
 from exp_reaching_goals.agent_class import sender_class, receiver_class
 from exp_reaching_goals.episode_generator import run_an_episode
 from exp_reaching_goals.buffer_class import buffer_class
@@ -29,29 +30,41 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         chart_name_list = init_wandb(sender_honest=config.sender.honest)
 
     i_episode = 0
+    i_save_flag = 0
     buffer = buffer_class()
     while i_episode < config.train.n_episodes:
-        run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
-        batch = buffer.sample_a_batch(batch_size=config.train.batch_size)
-        if using_wandb:
-            plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
-        i_episode += 1
+        while buffer.data_size <= buffer.capacity:
+            run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
+            batch_plot = buffer.sample_a_batch(config.env.max_step - 1, sample_the_last=True)
+            if using_wandb:
+                plot_with_wandb(chart_name_list, batch_plot, sender_honest=config.sender.honest)
+            i_episode += 1
+            i_save_flag += 1
 
-        update_vars_sender = sender.calculate_for_updating(batch) if not config.sender.honest else None
+        batch = buffer.sample_a_batch(batch_size=buffer.data_size)
         update_vars_receiver = receiver.calculate_for_updating(batch)
-
-        if not config.sender.honest:
-            sender.update(*update_vars_sender)
         receiver.update(*update_vars_receiver)
-
         buffer.reset()
 
-        if not i_episode % config.train.period:
+        if not config.sender.honest:
+            while buffer.data_size <= buffer.capacity:
+                run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
+                batch_plot = buffer.sample_a_batch(config.env.max_step - 1, sample_the_last=True)
+                if using_wandb:
+                    plot_with_wandb(chart_name_list, batch_plot, sender_honest=config.sender.honest)
+                i_episode += 1
+            batch = buffer.sample_a_batch(batch_size=buffer.data_size)
+            update_vars_sender = sender.calculate_for_updating(batch)
+            sender.update(*update_vars_sender)
+            buffer.reset()
+
+        if i_save_flag >= config.train.period:
             completion_rate = i_episode / config.train.n_episodes
             print('Task completion:\t{:.1%}'.format(completion_rate))
             if not config.sender.honest:
                 sender.save_models()
             receiver.save_models()
+            i_save_flag -= config.train.period
 
     return
 

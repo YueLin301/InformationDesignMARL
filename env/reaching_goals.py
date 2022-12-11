@@ -217,8 +217,8 @@ if __name__ == '__main__':
     from utils.configdict import ConfigDict
 
     config = ConfigDict()
-    config.map_height = 7
-    config.map_width = 7
+    config.map_height = 3
+    config.map_width = 3
     config.max_step = 50
     config.aligned_object = True
     config.bounded = True
