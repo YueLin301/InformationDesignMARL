@@ -4,7 +4,7 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp1_aligned_honest'
+config.main.exp_name = 'exp4_aligned_load'
 
 # ==================================================
 config.env = ConfigDict()
@@ -17,7 +17,7 @@ config.env.bounded = True
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 20000
+config.train.n_episodes = 50000
 config.train.period = 200
 # config.train.n_episodes = 50
 # config.train.period = 25
@@ -28,18 +28,28 @@ config.path = config_path
 
 # ==================================================
 config.sender = ConfigDict()
-
-config.sender.honest = True
+config.sender.honest = False
 config.sender.regradless_agent_pos = False
+config.sender.gaussian_distribution = False
+# config.sender.gaussian_distribution = True
+
+config.sender.lr_critic_Gi = 1e-3
+config.sender.lr_critic_Gj = 1e-3
+config.sender.lr_signal = 5e-4
+config.sender.gamma = 0.99
+config.sender.sender_objective_alpha = 0
+config.sender.coe_for_recovery_fromgumbel = 1
+if config.sender.gaussian_distribution:
+    config.sender.gaussian_var = 0.3
 
 # ==================================================
 config.receiver = ConfigDict()
-config.receiver.load = False
+config.receiver.load = True
 config.receiver.blind = False
-config.receiver.blind = config.receiver.blind and config.sender.honest
-config.receiver.lr_actor = 1e-4
-config.receiver.lr_critic_Gj = 1e-3
+config.receiver.lr_actor = 1e-999
+config.receiver.lr_critic_Gj = 1e-999
 config.receiver.gamma = 0.99
+# config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
 
 # ==================================================

@@ -29,7 +29,7 @@ config.path = config_path
 # ==================================================
 config.sender = ConfigDict()
 config.sender.honest = False
-config.sender.regradless_agent_pos = True
+config.sender.regradless_agent_pos = False
 # config.sender.gaussian_distribution = False
 config.sender.gaussian_distribution = True
 
@@ -45,6 +45,7 @@ if config.sender.gaussian_distribution:
 
 # ==================================================
 config.receiver = ConfigDict()
+config.receiver.load = False
 config.receiver.blind = False
 config.receiver.lr_actor = 1e-4
 config.receiver.lr_critic_Gj = 1e-3
@@ -57,7 +58,7 @@ config.n_channels = ConfigDict()
 config.n_channels.obs_sender = 2 if config.env.aligned_object else 3  # receiver position, receiver apple position ; receiver position, sender apple position, receiver apple position
 if config.sender.regradless_agent_pos:
     config.n_channels.obs_sender -= 1
-config.n_channels.message = 1 if not config.sender.honest else config.n_channels.obs_sender  # fake apple position; state
+config.n_channels.obs_and_message_receiver = 2 if not config.sender.honest else config.n_channels.obs_sender  # receiver position, fake apple position
 
 # ==================================================
 config.nn = ConfigDict()

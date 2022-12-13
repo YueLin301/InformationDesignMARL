@@ -19,6 +19,9 @@ def set_Env_and_Agents(config, device):
         sender.build_connection(receiver)
         receiver.build_connection(sender)
 
+    if config.receiver.load:
+        receiver.load_models()
+
     return env, sender, receiver
 
 

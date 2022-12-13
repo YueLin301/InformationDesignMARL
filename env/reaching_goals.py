@@ -82,12 +82,17 @@ class reaching_goals_env(object):
 
         return apple_position, apple_channel, apple_channel_np
 
-    def render(self, message_pos=None, filename=None, ):
+    def render(self, step, type='before', message=None, filename=None, ):
+        assert type in ['before', 'after']
+
         plt.clf()
         self.generate_map()
+        plt.title('t={}\n{} action'.format(step, type))
         plt.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
-        if not message_pos is None:
-            plt.plot(int(message_pos[0].int()), int(message_pos[1].int()), marker='o', markersize=20, color='pink')
+        if not message is None:
+            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
+            plt.plot(int(message_pos[1].int()), int(message_pos[0].int()), marker='o', markersize=20, color='pink')
+            # plt.plot(1, 0, marker='o', markersize=20, color='red')
         if filename is None:
             plt.draw()
             plt.pause(0.1)
@@ -107,7 +112,7 @@ class reaching_goals_env(object):
 
     def calculate_distance(self, pos1, pos2):
         distance = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
-        return distance
+        return distance ** 0.5
 
     def step(self, action):
         delta_pos = self.action_to_delta_pos_map[action]
@@ -174,9 +179,9 @@ class reaching_goals_env(object):
 def human_play(config):
     import sys
 
+    step = 0
     env = reaching_goals_env(config)
     env.reset()
-    env.render()
 
     a_map = {
         'w': 0,
@@ -187,11 +192,12 @@ def human_play(config):
 
     done = False
     while not done:
+        env.render(step, type='before')
         a = sys.stdin.readline().rstrip()
 
         state, [rs, rr], done = env.step(a_map[a])
         print(rs, rr, done)
-        env.render()
+        env.render(step, type='after')
 
     return
 

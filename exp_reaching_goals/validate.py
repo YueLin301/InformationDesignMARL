@@ -5,7 +5,7 @@ import torch
 
 from env.reaching_goals import reaching_goals_env
 
-from exp_reaching_goals.configs.exp1_aligned_honest import config
+from exp_reaching_goals.configs.exp4_aligned_load import config
 
 if __name__ == '__main__':
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')

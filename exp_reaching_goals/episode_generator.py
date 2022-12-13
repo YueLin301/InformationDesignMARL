@@ -12,36 +12,34 @@ import imageio
 
 def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
     done = False
-    state = env.reset().to(device)
-    obs_sender = state if not config.sender.regradless_agent_pos else state[:, 1:, :, :]
-
+    state = env.reset().to(device)  # receiver position, sender apple position, receiver apple position
     step = 0
-    if pls_render:
-        filename = os.path.join(config.path.saved_episode, str(step))
-        env.render(filename=filename)
-    while not done:
+    pic_step = 0  # before/after act
 
+    while not done:
+        obs_sender = state if not config.sender.regradless_agent_pos else state[:, 1:, :, :]
         if not config.sender.honest:
             message, phi = sender.send_message(obs_sender)
+            obs_and_message_receiver = torch.cat([state[:, 0:1, :, :], message], dim=1)
         else:
-            message, phi = obs_sender, None
+            obs_and_message_receiver, message, phi = obs_sender, None, None
             if config.receiver.blind:
-                message = torch.zeros_like(message).to(device)
+                obs_and_message_receiver = torch.zeros_like(obs_and_message_receiver).to(device)
 
         if pls_render:
-            filename = os.path.join(config.path.saved_episode, str(step))
-            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:] if not config.sender.honest else None
-            env.render(message_pos=message_pos, filename=filename)
+            filename = os.path.join(config.path.saved_episode, str(pic_step))
+            env.render(step=step, type='before', message=message, filename=filename)
+            pic_step += 1
 
-        a_receiver, pi = receiver.choose_action(message)
+        a_receiver, pi = receiver.choose_action(obs_and_message_receiver)
         state_next, rewards, done = env.step(int(a_receiver))
-        obs_sender_next = state_next if not config.sender.regradless_agent_pos else state_next[:, 1:, :, :]
 
         reward_sender = torch.tensor(rewards[sender.id], dtype=torch.double).to(device).unsqueeze(
             dim=0) if not config.sender.honest else None
         reward_receiver = torch.tensor(rewards[receiver.id], dtype=torch.double).to(device).unsqueeze(dim=0)
 
-        half_transition = [obs_sender.to(device), message, phi, a_receiver, pi, reward_sender, reward_receiver]
+        half_transition = [obs_sender.to(device), message, phi, obs_and_message_receiver, a_receiver, pi,
+                           reward_sender, reward_receiver]
         half_transition_clone = [half_transition[i].clone() if not half_transition[i] is None else None for i in
                                  range(len(half_transition))]
 
@@ -50,21 +48,22 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         if step:  # the first transition
             buffer.add_half_transition(half_transition_clone, '2nd')
 
-        step += 1
         if pls_render:
-            filename = os.path.join(config.path.saved_episode, str(step))
-            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:] if not config.sender.honest else None
-            env.render(message_pos=message_pos, filename=filename)
-        obs_sender = obs_sender_next.to(device)
+            filename = os.path.join(config.path.saved_episode, str(pic_step))
+            env.render(step=step, type='after', message=message, filename=filename)
+            pic_step += 1
+
+        step += 1
+        state = state_next
 
     if pls_render:
         imgs = []
-        for file_idx in range(config.env.max_step + 1):
+        for file_idx in range(pic_step):
             filename = os.path.join(config.path.saved_episode, str(file_idx) + '.png')
             # img = imageio.v2.imread(filename)
             img = imageio.imread(filename)
             imgs.append(img)
-        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.2)
+        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.5)
 
     return
 

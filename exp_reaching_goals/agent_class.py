@@ -114,8 +114,8 @@ class sender_class(object):
 
     def send_message(self, obs):
         batch_size = len(obs)
-        phi = self.signaling_net(obs)
-        logits = torch.log(phi)
+        logits,phi = self.signaling_net(obs)
+        # logits = torch.log(phi)
         sample = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
         message = sample.view(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
         return message, phi
@@ -148,7 +148,7 @@ class sender_class(object):
         # term2 = torch.mean(Gi.detach() * log_pij_aj)
         # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
         # gradeta2 = torch.autograd.grad(term2, list(self.signaling_net.parameters()), retain_graph=True)
-        
+
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 
@@ -232,16 +232,17 @@ class receiver_class(object):
 
         self.dim_action = dim_action = config.env.dim_action
 
-        self.critic_Qj = critic(config.n_channels.message, dim_action, config, belongto=name, device=device)
+        self.critic_Qj = critic(config.n_channels.obs_and_message_receiver, dim_action, config, belongto=name,
+                                device=device)
 
         self.critic_loss_criterion = torch.nn.MSELoss(reduction='mean')
         self.critic_Qj_optimizer = torch.optim.Adam(self.critic_Qj.parameters(), config.receiver.lr_critic_Gj)
 
-        self.actor = actor(config.n_channels.message, config, belongto=name, device=device)
+        self.actor = actor(config.n_channels.obs_and_message_receiver, config, belongto=name, device=device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config.receiver.lr_actor)
         self.gamma = config.receiver.gamma
 
-        self.target_critic_Qj = critic(config.n_channels.message, dim_action, config, belongto=name,
+        self.target_critic_Qj = critic(config.n_channels.obs_and_message_receiver, dim_action, config, belongto=name,
                                        name='target_critic', device=device)
         self.target_critic_Qj.load_state_dict(self.critic_Qj.state_dict())
 
@@ -273,22 +274,22 @@ class receiver_class(object):
 
     def calculate_for_updating(self, batch):
         rj = batch.data[batch.name_dict['rj']]
-        message = batch.data[batch.name_dict['message']]
-        message_next = batch.data[batch.name_dict['message_next']]
+        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+        obs_and_message_receiver_next = batch.data[batch.name_dict['obs_and_message_receiver_next']]
         aj = batch.data[batch.name_dict['a']]
         aj_next = batch.data[batch.name_dict['a_next']]
 
         critic_loss_Qj = calculate_critic_loss(self.critic_Qj, self.target_critic_Qj,
                                                self.critic_loss_criterion, r=rj,
-                                               input=message, a=aj,
-                                               input_next=message_next,
+                                               input=obs_and_message_receiver, a=aj,
+                                               input_next=obs_and_message_receiver_next,
                                                a_next=aj_next,
                                                gamma=self.gamma)
 
         # critic, input_critic, a, pi
         # pij = batch.data[batch.name_dict['pij']]
-        _, pij = self.choose_action(message)
-        actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_Qj, message, aj, pij)
+        _, pij = self.choose_action(obs_and_message_receiver)
+        actor_obj_mean, entropy = self.calculate_actorobj_and_entropy(self.critic_Qj, obs_and_message_receiver, aj, pij)
 
         return critic_loss_Qj, actor_obj_mean, entropy
 

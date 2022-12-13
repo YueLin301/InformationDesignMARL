@@ -1,7 +1,7 @@
 import random
 import torch
 
-name_cur = ['obs_sender', 'message', 'phi', 'a', 'pi', 'ri', 'rj', ]
+name_cur = ['obs_sender', 'message', 'phi', 'obs_and_message_receiver', 'a', 'pi', 'ri', 'rj', ]
 name_next = [item + '_next' for item in name_cur]
 name = name_cur + name_next
 len_name = len(name)
@@ -11,7 +11,6 @@ name_dict = dict(zip(name, range(len_name)))
 class buffer_class(object):
     def __init__(self):
         self.name, self.len_name, self.name_dict = name, len_name, name_dict
-        # self.capacity = 200
         self.capacity = 48
         self.reset()
 

@@ -124,4 +124,4 @@ class signaling_net(net_base):
             logits = dist.log_prob(self.grid_loc.detach()).unsqueeze(dim=0)
         phi = torch.softmax(logits, dim=-1)
 
-        return phi
+        return logits, phi
