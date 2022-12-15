@@ -172,7 +172,7 @@ class sender_class(object):
 
         # tuning for gumbel-softmax
         term = torch.mean(advantage_i.detach() * (log_phi_sigma
-                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
+                                         + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
         # term1 = torch.mean(Gi.detach() * log_phi_sigma)
         # term2 = torch.mean(Gi.detach() * log_pij_aj)
         # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
