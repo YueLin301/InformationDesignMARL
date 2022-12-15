@@ -17,8 +17,8 @@ config.env.bounded = True
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 50000
-config.train.period = 200
+config.train.n_episodes = 2000000
+config.train.period = 500
 # config.train.n_episodes = 50
 # config.train.period = 25
 
@@ -38,16 +38,19 @@ config.sender.lr_critic_Gj = 1e-3
 config.sender.lr_signal = 5e-4
 config.sender.gamma = 0.99
 config.sender.sender_objective_alpha = 0
-config.sender.coe_for_recovery_fromgumbel = 1
+config.sender.coe_for_recovery_fromgumbel = 2
 if config.sender.gaussian_distribution:
-    config.sender.gaussian_var = 0.3
+    config.sender.gaussian_var = 2
+config.sender.epsilon_greedy = 0
+config.sender.epsilon_decay = 0.99  # after generating every episode: epsilong <- epsilon * coe_decay
+config.sender.epsilon_min = 0
 
 # ==================================================
 config.receiver = ConfigDict()
 config.receiver.load = True
 config.receiver.blind = False
-config.receiver.lr_actor = 1e-999
-config.receiver.lr_critic_Gj = 1e-999
+config.receiver.lr_actor = 1e-99999
+config.receiver.lr_critic_Gj = 1e-99999
 config.receiver.gamma = 0.99
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
@@ -66,4 +69,4 @@ config.nn.n_filters = 3
 config.nn.hidden_width = 32
 config.nn.stride = 1
 config.nn.target_critic_tau = 0.98
-config.nn.target_critic_howoften = 1  # 过多少个episode更新一次target critic
+config.nn.target_critic_howoften = 1

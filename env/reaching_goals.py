@@ -9,6 +9,8 @@ class reaching_goals_env(object):
     def __init__(self, config):
         assert config.map_height % 2 and config.map_width % 2
         self.map_height, self.map_width, self.max_step, self.aligned_object, self.bounded = config.map_height, config.map_width, config.max_step, config.aligned_object, config.bounded
+        self.reward_amplifier = 10
+        self.done_with_first_reached = False
 
         self.color_map = {
             'agent': [20, 20, 220],  # blue
@@ -43,6 +45,8 @@ class reaching_goals_env(object):
             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         self.step_i = 0
 
+        self.done_sender, self.done_receiver = False, False
+
         if self.aligned_object:
             state = torch.cat([self.agent_channel.unsqueeze(dim=0),
                                self.receiver_apple_channel.unsqueeze(dim=0), ])
@@ -66,7 +70,10 @@ class reaching_goals_env(object):
                * color_map.unsqueeze(dim=-1).repeat(1, self.map_height).unsqueeze(dim=-1).repeat(1, 1, self.map_width)
 
     def reset_agent(self):
-        self.agent_position = [(self.map_height - 1) // 2, (self.map_width - 1) // 2]
+        agent_position = torch.randint(self.map_height * self.map_width, size=(1,))
+        self.agent_position = [torch.floor(agent_position / self.map_width).long(),
+                               agent_position % self.map_width]
+
         self.agent_channel = torch.zeros(self.map_height, self.map_width, dtype=torch.double)
         self.agent_channel[self.agent_position[0], self.agent_position[1]] = 1
         self.agent_channel_np = np.array(self.agent_channel)
@@ -82,22 +89,43 @@ class reaching_goals_env(object):
 
         return apple_position, apple_channel, apple_channel_np
 
-    def render(self, step, type='before', message=None, filename=None, ):
+    def render(self, step, type='before', message=None, phi=None, filename=None, ):
         assert type in ['before', 'after']
 
         plt.clf()
         self.generate_map()
-        plt.title('t={}\n{} action'.format(step, type))
-        plt.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
-        if not message is None:
-            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
-            plt.plot(int(message_pos[1].int()), int(message_pos[0].int()), marker='o', markersize=20, color='pink')
-            # plt.plot(1, 0, marker='o', markersize=20, color='red')
-        if filename is None:
-            plt.draw()
-            plt.pause(0.1)
+
+        if phi is None:
+            plt.title('t={}\n{} action'.format(step, type))
+            plt.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
+            if not message is None:
+                message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
+                plt.plot(int(message_pos[1].int()), int(message_pos[0].int()), marker='o', markersize=20, color='pink')
+            if filename is None:
+                plt.draw()
+                plt.pause(0.1)
+            else:
+                plt.savefig(filename)
         else:
-            plt.savefig(filename)
+            assert not message is None
+            assert not filename is None
+
+            fig = plt.figure()
+            env_fig = fig.add_subplot(1, 2, 1)
+            phi_fig = fig.add_subplot(1, 2, 2)
+
+            env_fig.set_title('t={}\n{} action'.format(step, type))
+            phi_fig.set_title('Signaling Scheme (phi)')
+
+            env_fig.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
+            phi_fig.imshow(phi.detach().view(self.map_height, self.map_width) * 255, interpolation='nearest',
+                           cmap='gray')
+
+            message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
+            env_fig.plot(int(message_pos[1].int()), int(message_pos[0].int()), marker='o', markersize=20, color='pink')
+
+            fig.savefig(filename)
+
         return
 
     def check_reached(self, type):
@@ -111,7 +139,7 @@ class reaching_goals_env(object):
         return flag
 
     def calculate_distance(self, pos1, pos2):
-        distance = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
+        distance = ((pos1[0] - pos2[0]) / self.map_height) ** 2 + ((pos1[1] - pos2[1]) / self.map_width) ** 2
         return distance ** 0.5
 
     def step(self, action):
@@ -139,31 +167,52 @@ class reaching_goals_env(object):
         self.agent_channel[self.agent_position[0], self.agent_position[1]] = 1
         self.agent_channel_np = np.array(self.agent_channel)
 
-        if self.check_reached('receiver'):
-            receiver_reward = 10
+        # if self.check_reached('receiver'):
+        #     receiver_reward = 10
+        #     while self.check_reached('receiver'):
+        #         self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
+        # else:
+        #     receiver_reward = 0
+        #     receiver_reward = receiver_reward - self.calculate_distance(self.agent_position,
+        #                                                                      self.receiver_apple_position)
+        #
+        # if self.check_reached('sender'):
+        #     sender_reward = 10
+        #     if not self.aligned_object:
+        #         while self.check_reached('sender'):
+        #             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+        #     else:
+        #         self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
+        # else:
+        #     sender_reward = 0
+        #     sender_reward = sender_reward - self.calculate_distance(self.agent_position,
+        #                                                                  self.sender_apple_position)
+
+        if self.done_with_first_reached:
+            receiver_reward = 1 \
+                if self.check_reached('receiver') \
+                else -self.calculate_distance(self.agent_position, self.receiver_apple_position) / (2 ** 0.5)
+            sender_reward = 1 \
+                if self.check_reached('sender') \
+                else - self.calculate_distance(self.agent_position, self.sender_apple_position) / (2 ** 0.5)
+
+            self.done_sender = True if self.check_reached('sender') else self.done_sender
+            self.done_receiver = True if self.check_reached('receiver') else self.done_sender
+            self.step_i += 1
+            done = True if self.step_i >= self.max_step or (self.done_sender and self.done_receiver) else False
+        else:
+            receiver_reward = 1 - self.calculate_distance(self.agent_position, self.receiver_apple_position) / (
+                    2 ** 0.5)
+            sender_reward = 1 - self.calculate_distance(self.agent_position, self.sender_apple_position) / (2 ** 0.5)
             while self.check_reached('receiver'):
                 self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
-        else:
-            receiver_reward = 0
-            receiver_reward = receiver_reward - self.calculate_distance(self.agent_position,
-                                                                        self.receiver_apple_position)
-
-        if self.check_reached('sender'):
-            sender_reward = 10
             if not self.aligned_object:
                 while self.check_reached('sender'):
                     self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
             else:
                 self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
-        else:
-            sender_reward = 0
-            sender_reward = sender_reward - self.calculate_distance(self.agent_position, self.sender_apple_position)
-
-        self.step_i += 1
-        if self.step_i >= self.max_step:
-            done = True
-        else:
-            done = False
+            self.step_i += 1
+            done = True if self.step_i >= self.max_step else False
 
         if self.aligned_object:
             state = torch.cat([self.agent_channel.unsqueeze(dim=0),
@@ -173,7 +222,8 @@ class reaching_goals_env(object):
                                self.sender_apple_channel.unsqueeze(dim=0),
                                self.receiver_apple_channel.unsqueeze(dim=0), ])
 
-        return state.unsqueeze(dim=0), [int(sender_reward), int(receiver_reward)], done
+        return state.unsqueeze(dim=0), [float(sender_reward * self.reward_amplifier),
+                                        float(receiver_reward * self.reward_amplifier)], done
 
 
 def human_play(config):

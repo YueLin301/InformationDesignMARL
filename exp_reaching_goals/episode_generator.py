@@ -28,7 +28,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
 
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(pic_step))
-            env.render(step=step, type='before', message=message, filename=filename)
+            env.render(step=step, type='before', message=message, phi=phi, filename=filename)
             pic_step += 1
 
         a_receiver, pi = receiver.choose_action(obs_and_message_receiver)
@@ -45,12 +45,17 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
 
         if not done:  # the last transition
             buffer.add_half_transition(half_transition, '1st')
+        else:
+            buffer.add_half_transition(half_transition, '1st')
+            half_transition_clone[-1] = torch.zeros(1)
+            half_transition_clone[-2] = torch.zeros(1)
+            buffer.add_half_transition(half_transition_clone, '2nd')
         if step:  # the first transition
             buffer.add_half_transition(half_transition_clone, '2nd')
 
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(pic_step))
-            env.render(step=step, type='after', message=message, filename=filename)
+            env.render(step=step, type='after', message=message, phi=phi, filename=filename)
             pic_step += 1
 
         step += 1
@@ -65,6 +70,8 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
             imgs.append(img)
         imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.5)
 
+    if not sender is None and sender.epsilon > config.sender.epsilon_min:
+        sender.epsilon = sender.epsilon * config.sender.epsilon_decay
     return
 
 

@@ -56,4 +56,4 @@ config.nn.n_filters = 3
 config.nn.hidden_width = 32
 config.nn.stride = 1
 config.nn.target_critic_tau = 0.98
-config.nn.target_critic_howoften = 1  # 过多少个episode更新一次target critic
+config.nn.target_critic_howoften = 1

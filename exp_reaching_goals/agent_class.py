@@ -40,6 +40,7 @@ class sender_class(object):
         self.device = device
         self.id = id
         self.dim_action = dim_action = config.env.dim_action
+        self.epsilon = config.sender.epsilon_greedy
 
         # Gi(s,aj)
         self.critic_Gi = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gi',
@@ -67,6 +68,30 @@ class sender_class(object):
 
     def build_connection(self, receiver):
         self.receiver = receiver
+
+    def calculate_v(self, critic, input_critic, phi, obs_receiver):
+        # v(s) = \sum_sigma phi(sigma|s) * \sum_a pi(a|sigma) * Gi(s,a)
+        batch_size = phi.shape[0]
+        message_dim = phi.shape[1]
+        all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
+            .view(message_dim,
+                  self.config.env.map_height,
+                  self.config.env.map_width).unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2)
+
+        obs_receiver = obs_receiver.repeat(1, message_dim, 1, 1).unsqueeze(dim=2)
+        obs_and_message_receiver = torch.cat([obs_receiver, all_message], dim=2)
+
+        obs_and_message_receiver_flatten = obs_and_message_receiver.view(batch_size * message_dim, 2,
+                                                                         obs_and_message_receiver.shape[-2],
+                                                                         obs_and_message_receiver.shape[-1])
+
+        _, pi_flatten = self.receiver.choose_action(obs_and_message_receiver_flatten)
+        pi = pi_flatten.view(obs_and_message_receiver.shape[0], obs_and_message_receiver.shape[1], pi_flatten.shape[-1])
+        pi_sum_all_message = torch.sum(pi * phi.unsqueeze(dim=2).repeat(1, 1, pi.shape[-1]), dim=1)
+
+        g_table = critic(input_critic)
+        v = torch.sum(g_table * pi_sum_all_message, dim=1)
+        return v
 
     def calculate_2critics_loss(self, batch):
         ri = batch.data[batch.name_dict['ri']]
@@ -114,8 +139,8 @@ class sender_class(object):
 
     def send_message(self, obs):
         batch_size = len(obs)
-        logits,phi = self.signaling_net(obs)
-        # logits = torch.log(phi)
+        logits, phi = self.signaling_net(obs)
+        phi = (1 - self.epsilon) * phi + self.epsilon / phi.shape[0]
         sample = torch.nn.functional.gumbel_softmax(logits, tau=self.temperature, hard=True)
         message = sample.view(batch_size, 1, self.config.env.map_height, self.config.env.map_width)
         return message, phi
@@ -137,13 +162,17 @@ class sender_class(object):
         # s, aj
         Gi_table = self.critic_Gi(obs_sender)
         Gi = Gi_table[range(len(aj)), aj]
+        obs_receiver = obs_sender[:, 0:1:, :,
+                       :]  # This is for advantage. The other way is to make the receiver to tell the results, in which the sender doesn't need to have access to this var.
+        Vi = self.calculate_v(self.critic_Gi, obs_sender, phi, obs_receiver)
+        advantage_i = Gi - Vi
 
         log_phi_sigma = torch.log(phi_sigma)
         log_pij_aj = torch.log(pij_aj)
 
         # tuning for gumbel-softmax
-        term = torch.mean(Gi.detach() * (log_phi_sigma
-                                         + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
+        term = torch.mean(advantage_i.detach() * (log_phi_sigma
+                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
         # term1 = torch.mean(Gi.detach() * log_phi_sigma)
         # term2 = torch.mean(Gi.detach() * log_pij_aj)
         # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)

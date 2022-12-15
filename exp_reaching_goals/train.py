@@ -38,13 +38,12 @@ def train(env, sender, receiver, config, device, using_wandb=False):
     while i_episode < config.train.n_episodes:
         while buffer.data_size <= buffer.capacity:
             run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
-            batch_plot = buffer.sample_a_batch(config.env.max_step - 1, sample_the_last=True)
-            if using_wandb:
-                plot_with_wandb(chart_name_list, batch_plot, sender_honest=config.sender.honest)
             i_episode += 1
             i_save_flag += 1
 
         batch = buffer.sample_a_batch(batch_size=buffer.data_size)
+        if using_wandb:
+            plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
         update_vars_receiver = receiver.calculate_for_updating(batch)
         receiver.update(*update_vars_receiver)
         buffer.reset()
@@ -52,11 +51,10 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         if not config.sender.honest:
             while buffer.data_size <= buffer.capacity:
                 run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
-                batch_plot = buffer.sample_a_batch(config.env.max_step - 1, sample_the_last=True)
-                if using_wandb:
-                    plot_with_wandb(chart_name_list, batch_plot, sender_honest=config.sender.honest)
                 i_episode += 1
             batch = buffer.sample_a_batch(batch_size=buffer.data_size)
+            if using_wandb:
+                plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
             update_vars_sender = sender.calculate_for_updating(batch)
             sender.update(*update_vars_sender)
             buffer.reset()

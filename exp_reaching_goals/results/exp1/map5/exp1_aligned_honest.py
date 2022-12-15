@@ -34,6 +34,7 @@ config.sender.regradless_agent_pos = False
 
 # ==================================================
 config.receiver = ConfigDict()
+config.receiver.load = False
 config.receiver.blind = False
 config.receiver.blind = config.receiver.blind and config.sender.honest
 config.receiver.lr_actor = 1e-4
@@ -46,7 +47,7 @@ config.n_channels = ConfigDict()
 config.n_channels.obs_sender = 2 if config.env.aligned_object else 3  # receiver position, receiver apple position ; receiver position, sender apple position, receiver apple position
 if config.sender.regradless_agent_pos:
     config.n_channels.obs_sender -= 1
-config.n_channels.message = 1 if not config.sender.honest else config.n_channels.obs_sender  # fake apple position; state
+config.n_channels.obs_and_message_receiver = 2 if not config.sender.honest else config.n_channels.obs_sender  # receiver position, fake apple position
 
 # ==================================================
 config.nn = ConfigDict()

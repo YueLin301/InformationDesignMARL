@@ -17,8 +17,8 @@ config.env.bounded = True
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 20000
-config.train.period = 200
+config.train.n_episodes = 200000
+config.train.period = 500
 # config.train.n_episodes = 50
 # config.train.period = 25
 
@@ -56,4 +56,4 @@ config.nn.n_filters = 3
 config.nn.hidden_width = 32
 config.nn.stride = 1
 config.nn.target_critic_tau = 0.98
-config.nn.target_critic_howoften = 1  # 过多少个episode更新一次target critic
+config.nn.target_critic_howoften = 1

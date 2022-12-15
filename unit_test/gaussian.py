@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 
 def unittest1():
     mu = torch.tensor([1, 1], dtype=torch.double, requires_grad=True)
-    sigma = torch.tensor(0.3, dtype=torch.double, requires_grad=True)
+    sigma = torch.tensor(1.5, dtype=torch.double, requires_grad=True)
     dist = torch.distributions.Normal(mu, sigma)
 
-    sample = dist.rsample([1000])
+    sample = dist.rsample([3000])
     x = np.array(sample[:, 0].detach())
     y = np.array(sample[:, 1].detach())
     plt.scatter(x, y, s=1)
@@ -21,8 +21,8 @@ def unittest1():
     temp1 = torch.autograd.grad(sample[0, 0], mu, retain_graph=True)
     temp2 = torch.autograd.grad(sample[0, 0], sigma, retain_graph=True)
 
-    plt.xlim([0, 2])
-    plt.ylim([0, 2])
+    plt.xlim([0, 4])
+    plt.ylim([0, 4])
     plt.show()
 
     return

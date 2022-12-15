@@ -11,6 +11,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     print(device)
     env = reaching_goals_env(config.env)
+    env.done_with_first_reached = False
     sender = sender_class(config=config, device=device) if not config.sender.honest else None
     receiver = receiver_class(config=config, device=device)
 
@@ -19,6 +20,8 @@ if __name__ == '__main__':
     receiver.load_models()
 
     buffer = buffer_class()
+    if not sender is None:
+        config.sender.epsilon_greedy = 0
     run_an_episode(env, sender, receiver, config, device, pls_render=True, buffer=buffer)
 
     batch = buffer.sample_a_batch(batch_size=buffer.data_size)

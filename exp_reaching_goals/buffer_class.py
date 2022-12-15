@@ -11,7 +11,7 @@ name_dict = dict(zip(name, range(len_name)))
 class buffer_class(object):
     def __init__(self):
         self.name, self.len_name, self.name_dict = name, len_name, name_dict
-        self.capacity = 48
+        self.capacity = 50
         self.reset()
 
     def reset(self):
