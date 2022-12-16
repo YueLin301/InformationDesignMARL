@@ -16,7 +16,7 @@ config.env.dim_action = 4
 config.env.bounded = True
 
 config.env.reward_amplifier = 10
-config.env.punish_amplifier = 3 * 2 ** 0.5
+config.env.punish_amplifier = 3
 
 # ==================================================
 config.train = ConfigDict()

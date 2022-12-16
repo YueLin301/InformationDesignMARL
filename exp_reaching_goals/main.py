@@ -2,7 +2,7 @@ import torch
 from exp_reaching_goals.train import train, set_Env_and_Agents
 from exp_reaching_goals.reaching_goals_utils import set_seed
 
-from exp_reaching_goals.configs.exp4b_aligned_load_map5 import config
+from exp_reaching_goals.configs.exp1a_aligned_honest_map3 import config
 
 
 def main(config, myseed=0):

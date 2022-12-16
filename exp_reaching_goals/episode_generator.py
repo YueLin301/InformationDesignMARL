@@ -3,7 +3,7 @@ import os.path
 from agent_class import sender_class, receiver_class
 # from exp_reaching_goals.reaching_goals_utils import obs_list_totorch
 from exp_reaching_goals.buffer_class import buffer_class
-from exp_reaching_goals.configs.exp3_aligned import config
+from exp_reaching_goals.configs.exp3a_aligned_map3 import config
 
 from env.reaching_goals import reaching_goals_env
 
