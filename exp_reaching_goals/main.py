@@ -2,12 +2,13 @@ import torch
 from exp_reaching_goals.train import train, set_Env_and_Agents
 from exp_reaching_goals.reaching_goals_utils import set_seed
 
-from exp_reaching_goals.configs.exp1a_aligned_honest_map3 import config
+from exp_reaching_goals.configs.exp1b_aligned_honest_map5_2 import config
 
 
 def main(config, myseed=0):
     set_seed(myseed)
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
     print(device)
 
     env, sender, receiver = set_Env_and_Agents(config, device)

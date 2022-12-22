@@ -4,7 +4,7 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp1a_aligned_honest_map3'
+config.main.exp_name = 'exp1b_aligned_honest_map5'
 
 # ==================================================
 config.env = ConfigDict()
@@ -15,8 +15,8 @@ config.env.aligned_object = True
 config.env.dim_action = 4
 config.env.bounded = True
 
-config.env.reward_amplifier = 10
-config.env.punish_amplifier = 3 * 2 ** 0.5
+config.env.reward_amplifier = 20
+config.env.punish_amplifier = 3
 
 # ==================================================
 config.train = ConfigDict()

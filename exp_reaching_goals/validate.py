@@ -5,10 +5,11 @@ import torch
 
 from env.reaching_goals import reaching_goals_env
 
-from exp_reaching_goals.configs.exp3a_aligned_map3 import config
+from exp_reaching_goals.configs.exp3b_aligned_map5_2 import config
 
 if __name__ == '__main__':
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
     print(device)
     env = reaching_goals_env(config.env)
     env.done_with_first_reached = False

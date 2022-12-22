@@ -76,7 +76,8 @@ class sender_class(object):
         all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
             .view(message_dim,
                   self.config.env.map_height,
-                  self.config.env.map_width).unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2)
+                  self.config.env.map_width)\
+            .unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2).to(self.device)
 
         obs_receiver = obs_receiver.repeat(1, message_dim, 1, 1).unsqueeze(dim=2)
         obs_and_message_receiver = torch.cat([obs_receiver, all_message], dim=2)
@@ -172,7 +173,7 @@ class sender_class(object):
 
         # tuning for gumbel-softmax
         term = torch.mean(advantage_i.detach() * (log_phi_sigma
-                                         + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
+                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
         # term1 = torch.mean(Gi.detach() * log_phi_sigma)
         # term2 = torch.mean(Gi.detach() * log_pij_aj)
         # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)

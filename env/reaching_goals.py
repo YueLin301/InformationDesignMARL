@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 class reaching_goals_env(object):
     def __init__(self, config):
         assert config.map_height % 2 and config.map_width % 2
-        self.map_height, self.map_width, self.max_step, self.aligned_object, self.bounded = config.map_height, config.map_width, config.max_step, config.aligned_object, config.bounded
+        self.map_height, self.map_width, self.max_step, self.aligned_object, self.bounded, self.dim_action = config.map_height, config.map_width, config.max_step, config.aligned_object, config.bounded, config.dim_action
         self.reward_amplifier, self.punish_amplifier = config.reward_amplifier, config.punish_amplifier
         self.done_with_first_reached = False
 
@@ -89,7 +89,7 @@ class reaching_goals_env(object):
 
         return apple_position, apple_channel, apple_channel_np
 
-    def render(self, step, type='before', message=None, phi=None, filename=None, ):
+    def render(self, step, type='before', message=None, phi=None, pi=None, filename=None, ):
         assert type in ['before', 'after']
 
         plt.clf()
@@ -109,18 +109,24 @@ class reaching_goals_env(object):
         else:
             assert not message is None
             assert not filename is None
+            assert not pi is None
 
             fig = plt.figure()
-            env_fig = fig.add_subplot(1, 2, 1)
-            phi_fig = fig.add_subplot(1, 2, 2)
+            pi_fig = fig.add_subplot(1, 3, 1)
+            env_fig = fig.add_subplot(1, 3, 2)
+            phi_fig = fig.add_subplot(1, 3, 3)
 
+            pi_fig.set_title('Receiver\'s Policy\n(pi)')
             env_fig.set_title('t={}\n{} action'.format(step, type))
-            phi_fig.set_title('Signaling Scheme (phi)')
+            phi_fig.set_title('Signaling Scheme\n(phi)')
 
+            pi_fig.imshow(pi.detach() * 255, interpolation='nearest', cmap='gray')
             env_fig.imshow(self.map_color.transpose(0, 1).transpose(1, 2).int(), interpolation='nearest')
             phi_fig.imshow(phi.detach().view(self.map_height, self.map_width) * 255, interpolation='nearest',
                            cmap='gray')
 
+            pi_fig.set_xticks(range(self.dim_action))
+            pi_fig.set_xticklabels(['up', 'down', 'left', 'right'])
             message_pos = torch.nonzero(message == 1).squeeze(dim=0)[2:]
             env_fig.plot(int(message_pos[1].int()), int(message_pos[0].int()), marker='o', markersize=20, color='pink')
 
