@@ -23,6 +23,9 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
             obs_and_message_receiver = torch.cat([state[:, 0:1, :, :], message], dim=1)
         else:
             obs_and_message_receiver, message, phi = obs_sender, None, None
+            if not config.env.aligned_object and config.n_channels.obs_and_message_receiver == 2:
+                obs_and_message_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
+                                                      obs_and_message_receiver[:, 2:3, :, :]], dim=1)
             if config.receiver.blind:
                 obs_and_message_receiver = torch.zeros_like(obs_and_message_receiver).to(device)
 
@@ -69,7 +72,7 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
             # img = imageio.v2.imread(filename)
             img = imageio.imread(filename)
             imgs.append(img)
-        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=1)
+        imageio.mimsave(os.path.join(config.path.saved_episode, 'generated_episode.gif'), imgs, duration=0.25)
 
     if not sender is None and sender.epsilon > config.sender.epsilon_min:
         sender.epsilon = sender.epsilon * config.sender.epsilon_decay

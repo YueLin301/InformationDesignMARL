@@ -76,7 +76,7 @@ class sender_class(object):
         all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
             .view(message_dim,
                   self.config.env.map_height,
-                  self.config.env.map_width)\
+                  self.config.env.map_width) \
             .unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2).to(self.device)
 
         obs_receiver = obs_receiver.repeat(1, message_dim, 1, 1).unsqueeze(dim=2)
@@ -183,45 +183,54 @@ class sender_class(object):
         gradeta_flatten = flatten_layers(gradeta)
 
         ''' BCE Obedience Constraint (Lagrangian) '''
-        # batch_len = aj.shape[0]
-        # sigma_counterfactual_index_flatten = torch.randint(self.config.env.map_height * self.config.env.map_width,
-        #                                                    size=(batch_len,)).to(self.device)  # negative sampling
-        # sigma_counterfactual_index = [
-        #     torch.floor(sigma_counterfactual_index_flatten / self.config.env.map_height).long().unsqueeze(dim=0),
-        #     (sigma_counterfactual_index_flatten % self.config.env.map_width).unsqueeze(dim=0)]
-        # sigma_counterfactual_index = torch.cat(sigma_counterfactual_index).to(self.device)
-        # sigma_counterfactual = torch.zeros(batch_len, self.config.env.map_height, self.config.env.map_width,
-        #                                    dtype=torch.double).to(self.device)
-        # sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
-        # # sigma_counterfactual_np = np.array(sigma_counterfactual)
-        # sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
-        # _, pij_counterfactual = self.receiver.choose_action(sigma_counterfactual)
-        #
-        # # s, aj
-        # Gj_table = self.critic_Gj(obs_sender)
-        # # term = phi_sigma * torch.sum((pij - pij_counterfactual) * Gj_table)
-        # term1 = phi_sigma * torch.sum(pij.detach() * Gj_table.detach(), dim=1).unsqueeze(dim=1)
-        # term2 = phi_sigma.detach() * torch.sum(pij * Gj_table.detach(), dim=1).unsqueeze(dim=1)
-        #
-        # # every pixel
-        # term1_sum = torch.sum(term1, dim=1)
-        # term2_sum = torch.sum(term2, dim=1)
-        #
-        # term1_mean = torch.mean(term1_sum)
-        # term2_mean = torch.mean(term2_sum)
-        #
-        # gradeta_constraint_term1 = torch.autograd.grad(term1_mean, list(self.signaling_net.parameters()),
-        #                                                retain_graph=True)
-        # gradeta_constraint_term2 = torch.autograd.grad(term2_mean, list(self.signaling_net.parameters()),
-        #                                                retain_graph=True)
-        #
-        # gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term1)
-        # gradeta_constraint_term_2nd_flatten = flatten_layers(
-        #     gradeta_constraint_term2) * self.config.sender.coe_for_recovery_fromgumbel
-        #
-        # gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
-        #                              + gradeta_constraint_term_2nd_flatten
-        # gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
+        if not self.config.env.aligned_object:
+            batch_len = aj.shape[0]
+            sigma_counterfactual_index_flatten = torch.randint(self.config.env.map_height * self.config.env.map_width,
+                                                               size=(batch_len,)).to(self.device)  # negative sampling
+            sigma_counterfactual_index = [
+                torch.floor(sigma_counterfactual_index_flatten / self.config.env.map_height).long().unsqueeze(dim=0),
+                (sigma_counterfactual_index_flatten % self.config.env.map_width).unsqueeze(dim=0)]
+            sigma_counterfactual_index = torch.cat(sigma_counterfactual_index).to(self.device)
+            sigma_counterfactual = torch.zeros(batch_len, self.config.env.map_height, self.config.env.map_width,
+                                               dtype=torch.double).to(self.device)
+            sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
+            # sigma_counterfactual_np = np.array(sigma_counterfactual)
+            sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
+            obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+            obs_and_message_counterfactual_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
+                                                                 sigma_counterfactual], dim=1)
+            _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
+
+            # s, aj
+            Gj_table = self.critic_Gj(obs_sender)
+            # term = phi_sigma * torch.sum((pij - pij_counterfactual) * Gj_table)
+            term1 = phi_sigma * torch.sum(pij.detach() * Gj_table.detach(), dim=1).unsqueeze(dim=1)
+            term2 = phi_sigma.detach() * torch.sum(pij * Gj_table.detach(), dim=1).unsqueeze(dim=1)
+
+            # every pixel
+            term1_sum = torch.sum(term1, dim=1)
+            term2_sum = torch.sum(term2, dim=1)
+
+            term1_mean = torch.mean(term1_sum)
+            term2_mean = torch.mean(term2_sum)
+
+            gradeta_constraint_term1 = torch.autograd.grad(term1_mean, list(self.signaling_net.parameters()),
+                                                           retain_graph=True)
+            gradeta_constraint_term2 = torch.autograd.grad(term2_mean, list(self.signaling_net.parameters()),
+                                                           retain_graph=True)
+
+            gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term1)
+            gradeta_constraint_term_2nd_flatten = flatten_layers(
+                gradeta_constraint_term2) * self.config.sender.coe_for_recovery_fromgumbel
+
+            gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
+                                         + gradeta_constraint_term_2nd_flatten
+            if self.config.sender.sender_objective_alpha >= 1:
+                gradeta_flatten = gradeta_flatten / self.config.sender.sender_objective_alpha + gradeta_constraint_flatten
+            elif 0 <= self.config.sender.sender_objective_alpha < 1:
+                gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
+            else:
+                raise IOError
 
         # reform to be in original shape
         gradeta_flatten = gradeta_flatten.squeeze()
