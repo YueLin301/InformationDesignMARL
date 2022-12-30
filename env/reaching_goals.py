@@ -41,10 +41,13 @@ class reaching_goals_env(object):
             self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
 
         if not self.aligned_object:
-            self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+            # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+            # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
+            self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
             while self.check_reached('sender'):
                 # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
-                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
+                # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
+                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
         else:
             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         self.step_i = 0
@@ -96,7 +99,7 @@ class reaching_goals_env(object):
     def generate_sender_apple_nearby(self):
         i = self.receiver_apple_position[0]
         if i == 0 and i == self.map_height - 1:
-            si = i.clone()  # sender apple position i
+            si = torch.tensor([0])  # sender apple position i
         elif i == 0:
             si = torch.randint(0, 2, (1,))
         elif i == self.map_height - 1:
@@ -106,13 +109,53 @@ class reaching_goals_env(object):
 
         j = self.receiver_apple_position[1]
         if j == 0 and j == self.map_width - 1:
-            sj = j.clone()  # sender apple position j
+            sj = torch.tensor([0])  # sender apple position j
         elif j == 0:
             sj = torch.randint(0, 2, (1,))
         elif j == self.map_width - 1:
             sj = torch.randint(-1, 1, (1,))
         else:
             sj = torch.randint(-1, 2, (1,))
+
+        sender_apple_position = [si + i, sj + j]
+        sender_apple_channel = torch.zeros(self.map_height, self.map_width, dtype=torch.double)
+        sender_apple_channel[sender_apple_position[0], sender_apple_position[1]] = 1
+        sender_apple_channel_np = np.array(sender_apple_channel)
+
+        return sender_apple_position, sender_apple_channel, sender_apple_channel_np
+
+    def generate_sender_apple_nearby_never_aligned(self):
+        i = self.receiver_apple_position[0]
+        if i == 0 and i == self.map_height - 1:
+            si = torch.tensor([0])  # sender apple position i
+        elif i == 0:
+            si = torch.randint(0, 2, (1,))
+        elif i == self.map_height - 1:
+            si = torch.randint(-1, 1, (1,))
+        else:
+            si = torch.randint(-1, 2, (1,))
+
+        j = self.receiver_apple_position[1]
+        if si.data == 0:
+            if j == 0 and j == self.map_width - 1:
+                sj = torch.tensor([0])  # sender apple position j
+            elif j == 0:
+                sj = torch.tensor([1])
+            elif j == self.map_width - 1:
+                sj = torch.tensor([-1])
+            else:
+                sj = torch.randint(0, 2, (1,))
+                sj = (sj - 0.5) * 2
+                sj = sj.long()
+        else:
+            if j == 0 and j == self.map_width - 1:
+                sj = torch.tensor([0])  # sender apple position j
+            elif j == 0:
+                sj = torch.randint(0, 2, (1,))
+            elif j == self.map_width - 1:
+                sj = torch.randint(-1, 1, (1,))
+            else:
+                sj = torch.randint(-1, 2, (1,))
 
         sender_apple_position = [si + i, sj + j]
         sender_apple_channel = torch.zeros(self.map_height, self.map_width, dtype=torch.double)
@@ -233,7 +276,8 @@ class reaching_goals_env(object):
                 if not self.aligned_object:
                     while self.check_reached('sender'):
                         # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
-                        self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
+                        # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
+                        self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
                 else:
                     self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
             else:
