@@ -4,7 +4,7 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp7b_map5_0'
+config.main.exp_name = 'exp7b_map5_100'
 
 # ==================================================
 config.env = ConfigDict()
@@ -33,11 +33,11 @@ config.sender.honest = False
 config.sender.regradless_agent_pos = False
 config.sender.gaussian_distribution = False
 
-config.sender.lr_critic_Gi = 3e-4
-config.sender.lr_critic_Gj = 3e-4
-config.sender.lr_signal = 1.5e-4
+config.sender.lr_critic_Gi = 5e-4
+config.sender.lr_critic_Gj = 5e-4
+config.sender.lr_signal = 2.5e-4
 config.sender.gamma = 0.99
-config.sender.sender_objective_alpha = 0
+config.sender.sender_objective_alpha = 100
 config.sender.coe_for_recovery_fromgumbel = 2
 if config.sender.gaussian_distribution:
     config.sender.gaussian_var = 2
@@ -49,8 +49,8 @@ config.sender.epsilon_min = 0
 config.receiver = ConfigDict()
 config.receiver.load = False
 config.receiver.blind = False
-config.receiver.lr_actor = 3e-5
-config.receiver.lr_critic_Gj = 3e-4
+config.receiver.lr_actor = 5e-5
+config.receiver.lr_critic_Gj = 5e-4
 config.receiver.gamma = 0.99
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
