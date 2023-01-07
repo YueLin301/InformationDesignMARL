@@ -4,19 +4,19 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp8a_load_map3_10'
+config.main.exp_name = 'exp8b_load_map5_0003'
 
 # ==================================================
 config.env = ConfigDict()
-config.env.map_height = 3
-config.env.map_width = 3
+config.env.map_height = 5
+config.env.map_width = 5
 config.env.max_step = 50
 config.env.aligned_object = False
 config.env.dim_action = 4
 config.env.bounded = True
 
-config.env.reward_amplifier = 20
-config.env.punish_amplifier = 2
+config.env.reward_amplifier = 30
+config.env.punish_amplifier = 1
 
 # ==================================================
 config.train = ConfigDict()
@@ -36,11 +36,11 @@ config.sender.regradless_agent_pos = False
 config.sender.gaussian_distribution = False
 # config.sender.gaussian_distribution = True
 
-config.sender.lr_critic_Gi = 5e-4
-config.sender.lr_critic_Gj = 5e-4
-config.sender.lr_signal = 2.5e-4
+config.sender.lr_critic_Gi = 3e-4
+config.sender.lr_critic_Gj = 3e-4
+config.sender.lr_signal = 1.5e-4
 config.sender.gamma = 0.99
-config.sender.sender_objective_alpha = 10
+config.sender.sender_objective_alpha = 0.003
 config.sender.coe_for_recovery_fromgumbel = 2
 if config.sender.gaussian_distribution:
     config.sender.gaussian_var = 2
@@ -63,7 +63,7 @@ config.n_channels = ConfigDict()
 config.n_channels.obs_sender = 2 if config.env.aligned_object else 3  # receiver position, receiver apple position ; receiver position, sender apple position, receiver apple position
 if config.sender.regradless_agent_pos:
     config.n_channels.obs_sender -= 1
-config.n_channels.obs_and_message_receiver = 2  # receiver position, fake apple position
+config.n_channels.obs_and_message_receiver = 2 if not config.sender.honest else config.n_channels.obs_sender  # receiver position, fake apple position
 
 # ==================================================
 config.nn = ConfigDict()

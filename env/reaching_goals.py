@@ -41,13 +41,13 @@ class reaching_goals_env(object):
             self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np = self.generate_apple()
 
         if not self.aligned_object:
-            # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+            self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
             # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
-            self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
+            # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
             while self.check_reached('sender'):
-                # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
                 # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
-                self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
+                # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
         else:
             self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
         self.step_i = 0
@@ -275,9 +275,9 @@ class reaching_goals_env(object):
                 sender_reward = 1 * self.reward_amplifier
                 if not self.aligned_object:
                     while self.check_reached('sender'):
-                        # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
+                        self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_apple()
                         # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby()
-                        self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
+                        # self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.generate_sender_apple_nearby_never_aligned()
                 else:
                     self.sender_apple_position, self.sender_apple_channel, self.sender_apple_channel_np = self.receiver_apple_position, self.receiver_apple_channel, self.receiver_apple_channel_np
             else:

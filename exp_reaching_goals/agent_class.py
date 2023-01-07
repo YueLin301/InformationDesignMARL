@@ -203,9 +203,12 @@ class sender_class(object):
 
             # s, aj
             Gj_table = self.critic_Gj(obs_sender)
-            # term = phi_sigma * torch.sum((pij - pij_counterfactual) * Gj_table)
+            # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
+            # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
             term1 = phi_sigma * torch.sum(pij.detach() * Gj_table.detach(), dim=1).unsqueeze(dim=1)
             term2 = phi_sigma.detach() * torch.sum(pij * Gj_table.detach(), dim=1).unsqueeze(dim=1)
+            # term1 = phi_sigma * torch.sum(pij.detach() * advantage_j_table.detach(), dim=1).unsqueeze(dim=1)
+            # term2 = phi_sigma.detach() * torch.sum(pij * advantage_j_table.detach(), dim=1).unsqueeze(dim=1)
 
             # every pixel
             term1_sum = torch.sum(term1, dim=1)
