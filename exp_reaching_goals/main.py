@@ -24,5 +24,5 @@ if __name__ == '__main__':
     import time
 
     t0 = time.time()
-    main(config, myseed=0)
+    main(config, myseed=5)
     print('time:', time.time() - t0)

@@ -2,7 +2,7 @@ import torch
 from exp_harvest.train import train, set_Env_and_Agents
 from exp_harvest.harvest_utils import set_seed
 
-from exp_harvest.configs.exp1_7 import config
+from exp_harvest.configs.exp2_11_05 import config
 
 
 def main(config, myseed=0):
@@ -12,7 +12,7 @@ def main(config, myseed=0):
 
     env, sender, receiver = set_Env_and_Agents(config, device)
 
-    train(env, sender, receiver, config, device)
+    train(env, sender, receiver, config, device, using_wandb=True)
 
     print('----------------------------------------')
     print('All done.')

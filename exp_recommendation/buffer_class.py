@@ -10,6 +10,8 @@ class buffer_class(object):
         self.reward_pro, self.reward_hr = [None] * 9
 
         self.values = None
+
+
         return
 
     def set_values(self, buffer_values):

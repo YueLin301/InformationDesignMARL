@@ -5,6 +5,9 @@ from exp_recommendation.episode_generator import run_an_episode
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
+import wandb
+from exp_recommendation.mykey import wandb_login_key, wandb_project_name, wandb_entity_name
+
 
 def set_net_params(net, params):
     net_params_list = list(net.parameters())
@@ -248,3 +251,55 @@ def plot_all(fake_buffer, fig, reward_pro_curve, reward_hr_curve,
     pi_hire_when_rec_curve.plot(y_pi_hire_when_rec)
     # pi_hire_when_notrec_curve.plot(x_smooth_phi_rec_when_bad, 1 - y_smooth_phi_rec_when_bad)
     # pi_hire_when_rec_curve.plot(x_smooth_phi_rec_when_good, y_smooth_phi_rec_when_good)
+
+
+def init_wandb(group_name, sender_objective_alpha):
+    # wandb.login(key=wandb_login_key)
+    run_handle = wandb.init(project=wandb_project_name, entity=wandb_entity_name, reinit=True, group=group_name,
+                            config={"pro_objective_alpha": sender_objective_alpha})
+
+    chart_name_list = ['reward_sender',
+                       'reward_receiver',
+                       'social_welfare',
+
+                       'prob_of_signaling_1_when_bad',
+                       'prob_of_signaling_1_when_good',
+                       'prob_of_hiring_when_0',
+                       'prob_of_hiring_when_1',
+                       ]
+
+    for chart_name in chart_name_list:
+        wandb.define_metric(chart_name)
+
+    return chart_name_list, run_handle
+
+
+def plot_with_wandb(chart_name_list, batch, i_episode):
+    entry = dict(zip(chart_name_list, [0] * len(chart_name_list)))
+
+    state = batch.obs_pro.detach()
+    message_pro = batch.message_pro.detach()
+
+    reward_pro_tensor = batch.reward_pro.detach()
+    reward_hr_tensor = batch.reward_hr.detach()
+    reward_tot_tensor = reward_pro_tensor + reward_hr_tensor
+
+    message_prob_pro = batch.message_prob_pro.detach()
+    a_prob_hr = batch.a_prob_hr.detach()
+
+    for idx in range(len(state)):
+        entry['reward_sender'] = float(reward_pro_tensor[idx])
+        entry['reward_receiver'] = float(reward_hr_tensor[idx])
+        entry['social_welfare'] = float(reward_tot_tensor[idx])
+
+        if state[idx] == 0:
+            entry['prob_of_signaling_1_when_bad'] = float(message_prob_pro[idx][1])
+        else:
+            entry['prob_of_signaling_1_when_good'] = float(message_prob_pro[idx][1])
+
+        if message_pro[idx] == 0:
+            entry['prob_of_hiring_when_0'] = float(a_prob_hr[idx][1])
+        else:
+            entry['prob_of_hiring_when_1'] = float(a_prob_hr[idx][1])
+        wandb.log(entry, step=idx + i_episode)
+    return

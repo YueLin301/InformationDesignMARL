@@ -12,7 +12,7 @@ config.env = config_env
 config.pro = ConfigDict()
 config.pro.fixed_signaling_scheme = True
 # optimal signaling scheme
-config.pro.signaling_scheme = torch.tensor([[0.5, 0.5],
+config.pro.signaling_scheme = torch.tensor([[0.49, 0.51],
                                             [0, 1]], dtype=torch.double)
 config.pro.lr_pro_critic = 0
 config.pro.lr_signal = 0

@@ -180,13 +180,13 @@ class reaching_goals_env(object):
                 plt.draw()
                 plt.pause(0.1)
             else:
-                plt.savefig(filename)
+                plt.savefig(filename, dpi=300)
         else:
             assert not message is None
             assert not filename is None
             assert not pi is None
 
-            fig = plt.figure()
+            fig = plt.figure(dpi=300)
             pi_fig = fig.add_subplot(1, 3, 1)
             env_fig = fig.add_subplot(1, 3, 2)
             phi_fig = fig.add_subplot(1, 3, 3)

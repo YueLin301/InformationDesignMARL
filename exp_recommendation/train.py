@@ -1,6 +1,7 @@
 from env import recommendation
 from exp_recommendation.agent_class import pro_class, hr_class
 from exp_recommendation.episode_generator import run_an_episode
+from exp_recommendation.rec_utils import init_wandb, plot_with_wandb
 
 
 def set_Env_and_Agents(config):
@@ -17,13 +18,19 @@ def set_Env_and_Agents(config):
     return env, pro, hr
 
 
-def train(config, env, pro, hr):
+def train(config, env, pro, hr, using_wandb=False, group_name=None):
     print('----------------------------------------')
-    fake_buffer = []  # for ploting curves
+
+    if using_wandb:
+        chart_name_list, run_handle = init_wandb(group_name, config.pro.sender_objective_alpha)
+
+    fake_buffer = []  # for ploting curves (local)
     print('Start training.')
     i_episode = 0
     while i_episode < config.train.n_episodes:
         buffer, fake_buffer = run_an_episode(env, pro, hr, fake_buffer)
+        if using_wandb:
+            plot_with_wandb(chart_name_list, buffer, i_episode)
         i_episode += config.env.sample_n_students
 
         hr.update_ac(buffer)
@@ -31,11 +38,15 @@ def train(config, env, pro, hr):
 
         if not config.pro.fixed_signaling_scheme:
             buffer, fake_buffer = run_an_episode(env, pro, hr, fake_buffer)
-            i_episode += config.env.sample_n_students
+            if using_wandb:
+                plot_with_wandb(chart_name_list, buffer, i_episode)
             pro.update_infor_design(buffer)
+            i_episode += config.env.sample_n_students
 
         if not i_episode % 1e4:
             completion_rate = i_episode / config.train.n_episodes
             print('Task completion:\t{:.1%}'.format(completion_rate))
 
+    if using_wandb:
+        run_handle.finish()
     return fake_buffer
