@@ -20,7 +20,7 @@ config.env.punish_amplifier = 5
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 2000000
+config.train.n_episodes = 300000
 config.train.period = 500
 # config.train.n_episodes = 50
 # config.train.period = 25
@@ -51,6 +51,7 @@ config.sender.epsilon_min = 0
 # ==================================================
 config.receiver = ConfigDict()
 config.receiver.load = True
+config.receiver.load_path = './models/exp5a2_2cn_honest_map3'
 config.receiver.blind = False
 config.receiver.lr_actor = 3e-5
 config.receiver.lr_critic_Gj = 3e-4

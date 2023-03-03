@@ -18,7 +18,7 @@ config.pro.lr_signal = 1e-3
 config.pro.coe_for_recovery_fromgumbel = 2
 
 config.pro.constraint_right = 0
-config.pro.sender_objective_alpha = 100  # Lagrangian lambda
+config.pro.sender_objective_alpha = 2.250000001  # Lagrangian lambda
 
 config.pro.initialize = False
 
@@ -40,7 +40,6 @@ config.hr.initialize = False
 '''train'''
 config.train = ConfigDict()
 
-config.train.n_episodes = 3e6
-# config.train.n_episodes = 1e6
+config.train.n_episodes = 6e6
 
 config.train.GAE_term = 'TD-error'

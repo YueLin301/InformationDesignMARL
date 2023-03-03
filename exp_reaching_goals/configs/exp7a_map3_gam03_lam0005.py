@@ -4,7 +4,7 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'exp8a_load_map3_0005'
+config.main.exp_name = 'exp7a_map3_gam03_lam0005'
 
 # ==================================================
 config.env = ConfigDict()
@@ -20,7 +20,7 @@ config.env.punish_amplifier = 5
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 300000
+config.train.n_episodes = 400000
 config.train.period = 500
 # config.train.n_episodes = 50
 # config.train.period = 25
@@ -50,12 +50,12 @@ config.sender.epsilon_min = 0
 
 # ==================================================
 config.receiver = ConfigDict()
-config.receiver.load = True
-config.receiver.load_path = './models/exp5a2_2cn_honest_map3'
+config.receiver.load = False
 config.receiver.blind = False
 config.receiver.lr_actor = 3e-5
 config.receiver.lr_critic_Gj = 3e-4
-config.receiver.gamma = 0.99
+# config.receiver.gamma = 0.99
+config.receiver.gamma = 0.3
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
 

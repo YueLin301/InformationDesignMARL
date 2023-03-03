@@ -20,7 +20,8 @@ def set_Env_and_Agents(config, device):
         receiver.build_connection(sender)
 
     if config.receiver.load:
-        receiver.load_models()
+        receiver.load_models(path=config.receiver.load_path)
+        # receiver.load_models()
 
     return env, sender, receiver
 
@@ -30,7 +31,7 @@ def train(env, sender, receiver, config, device, using_wandb=False):
     print('Training.')
 
     if using_wandb:
-        chart_name_list = init_wandb(sender_honest=config.sender.honest)
+        chart_name_list, run_handle = init_wandb(config)
 
     i_episode = 0
     i_save_flag = 0
@@ -48,7 +49,7 @@ def train(env, sender, receiver, config, device, using_wandb=False):
         receiver.update(*update_vars_receiver)
         buffer.reset()
 
-        if not config.sender.honest:
+        if not config.sender.honest and not config.receiver.blind:
             while buffer.data_size <= buffer.capacity:
                 run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
                 i_episode += 1
@@ -66,6 +67,9 @@ def train(env, sender, receiver, config, device, using_wandb=False):
                 sender.save_models()
             receiver.save_models()
             i_save_flag -= config.train.period
+
+    if using_wandb:
+        run_handle.finish()
 
     return
 

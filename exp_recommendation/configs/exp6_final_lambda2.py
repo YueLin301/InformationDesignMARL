@@ -40,6 +40,6 @@ config.hr.initialize = False
 '''train'''
 config.train = ConfigDict()
 
-config.train.n_episodes = 3e6
+config.train.n_episodes = 6e6
 
 config.train.GAE_term = 'TD-error'

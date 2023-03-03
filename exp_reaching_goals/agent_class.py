@@ -173,7 +173,8 @@ class sender_class(object):
 
         # tuning for gumbel-softmax
         term = torch.mean(advantage_i.detach() * (log_phi_sigma
-                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
+                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel
+                                                  ))
         # term1 = torch.mean(Gi.detach() * log_phi_sigma)
         # term2 = torch.mean(Gi.detach() * log_pij_aj)
         # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
@@ -233,7 +234,8 @@ class sender_class(object):
             elif 0 <= self.config.sender.sender_objective_alpha < 1:
                 gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
             else:
-                raise IOError
+                # raise IOError
+                pass
 
         # reform to be in original shape
         gradeta_flatten = gradeta_flatten.squeeze()
@@ -347,7 +349,8 @@ class receiver_class(object):
         self.critic_Qj.save_checkpoint()
         self.target_critic_Qj.save_checkpoint()
 
-    def load_models(self):
-        self.actor.load_checkpoint()
-        self.critic_Qj.load_checkpoint()
-        self.target_critic_Qj.load_checkpoint()
+    def load_models(self,path=None):
+        self.actor.load_checkpoint(path)
+        self.critic_Qj.load_checkpoint(path)
+        self.target_critic_Qj.load_checkpoint(path)
+

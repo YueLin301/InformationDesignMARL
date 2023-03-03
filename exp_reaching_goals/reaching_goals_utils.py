@@ -4,11 +4,16 @@ import wandb
 from exp_reaching_goals.mykey import wandb_login_key, wandb_project_name, wandb_entity_name
 
 
-def init_wandb(sender_honest):
-    wandb.login(key=wandb_login_key)
-    wandb.init(project=wandb_project_name, entity=wandb_entity_name)
+def init_wandb(config):
+    # wandb.login(key=wandb_login_key)
+    # wandb.init(project=wandb_project_name, entity=wandb_entity_name)
+    run_handle = wandb.init(project=wandb_project_name, entity=wandb_entity_name, reinit=True,
+                            group=config.main.exp_name,
+                            config={"sender_objective_alpha": config.sender.sender_objective_alpha,
+                                    "map": config.env.map_height,
+                                    "receiver_gamma":config.receiver.gamma})
 
-    if not sender_honest:
+    if not config.sender.honest:
         chart_name_list = ['reward_sender',
                            'reward_receiver',
                            'social_welfare',
@@ -25,7 +30,7 @@ def init_wandb(sender_honest):
     for chart_name in chart_name_list:
         wandb.define_metric(chart_name)
 
-    return chart_name_list
+    return chart_name_list, run_handle
 
 
 def flatten_layers(gradtensor, dim=0):

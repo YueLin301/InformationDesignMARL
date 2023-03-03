@@ -274,7 +274,7 @@ def init_wandb(group_name, sender_objective_alpha):
     return chart_name_list, run_handle
 
 
-def plot_with_wandb(chart_name_list, batch, i_episode):
+def plot_with_wandb(chart_name_list, batch, i_episode, env_sample_n_students):
     entry = dict(zip(chart_name_list, [0] * len(chart_name_list)))
 
     state = batch.obs_pro.detach()
@@ -287,19 +287,39 @@ def plot_with_wandb(chart_name_list, batch, i_episode):
     message_prob_pro = batch.message_prob_pro.detach()
     a_prob_hr = batch.a_prob_hr.detach()
 
-    for idx in range(len(state)):
-        entry['reward_sender'] = float(reward_pro_tensor[idx])
-        entry['reward_receiver'] = float(reward_hr_tensor[idx])
-        entry['social_welfare'] = float(reward_tot_tensor[idx])
+    entry['reward_sender'] = float(torch.mean(reward_pro_tensor))
+    entry['reward_receiver'] = float(torch.mean(reward_hr_tensor))
+    entry['social_welfare'] = float(torch.mean(reward_tot_tensor))
 
-        if state[idx] == 0:
-            entry['prob_of_signaling_1_when_bad'] = float(message_prob_pro[idx][1])
-        else:
-            entry['prob_of_signaling_1_when_good'] = float(message_prob_pro[idx][1])
+    idx_bad_stu = (state == 0).nonzero().squeeze()
+    idx_good_stu = (state == 1).nonzero().squeeze()
+    phi_when_bad = torch.index_select(message_prob_pro, 0, idx_bad_stu)
+    phi_when_good = torch.index_select(message_prob_pro, 0, idx_good_stu)
+    entry['prob_of_signaling_1_when_bad'] = float(torch.mean(phi_when_bad, dim=0)[1])
+    entry['prob_of_signaling_1_when_good'] = float(torch.mean(phi_when_good, dim=0)[1])
 
-        if message_pro[idx] == 0:
-            entry['prob_of_hiring_when_0'] = float(a_prob_hr[idx][1])
-        else:
-            entry['prob_of_hiring_when_1'] = float(a_prob_hr[idx][1])
-        wandb.log(entry, step=idx + i_episode)
+    idx_message_0 = (message_pro == 0).nonzero().squeeze()
+    idx_message_1 = (message_pro == 1).nonzero().squeeze()
+    pi_when_0 = torch.index_select(a_prob_hr, 0, idx_message_0)
+    pi_when_1 = torch.index_select(a_prob_hr, 0, idx_message_1)
+    entry['prob_of_hiring_when_0'] = float(torch.mean(pi_when_0, dim=0)[1])
+    entry['prob_of_hiring_when_1'] = float(torch.mean(pi_when_1, dim=0)[1])
+
+    wandb.log(entry, step=i_episode * env_sample_n_students)
+
+    # for idx in range(len(state)):
+    #     entry['reward_sender'] = float(reward_pro_tensor[idx])
+    #     entry['reward_receiver'] = float(reward_hr_tensor[idx])
+    #     entry['social_welfare'] = float(reward_tot_tensor[idx])
+    #
+    #     if state[idx] == 0:
+    #         entry['prob_of_signaling_1_when_bad'] = float(message_prob_pro[idx][1])
+    #     else:
+    #         entry['prob_of_signaling_1_when_good'] = float(message_prob_pro[idx][1])
+    #
+    #     if message_pro[idx] == 0:
+    #         entry['prob_of_hiring_when_0'] = float(a_prob_hr[idx][1])
+    #     else:
+    #         entry['prob_of_hiring_when_1'] = float(a_prob_hr[idx][1])
+    #     wandb.log(entry, step=idx + i_episode)
     return

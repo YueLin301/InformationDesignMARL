@@ -37,8 +37,12 @@ class net_base(nn.Module):
         torch.save(self.state_dict(), self.checkpoint_file)
         return
 
-    def load_checkpoint(self):
-        self.load_state_dict(torch.load(self.checkpoint_file, map_location=self.device))
+    def load_checkpoint(self, path=None):
+        if not path:
+            self.load_state_dict(torch.load(self.checkpoint_file, map_location=self.device))
+        else:
+            load_path = os.path.join(path, self.belongto, self.name)
+            self.load_state_dict(torch.load(load_path, map_location=self.device))
 
 
 class actor(net_base):
