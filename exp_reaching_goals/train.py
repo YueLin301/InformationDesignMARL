@@ -1,6 +1,7 @@
 import wandb
 import math
-from exp_reaching_goals.agent_class import sender_class, receiver_class
+# from exp_reaching_goals.agent_class import sender_class, receiver_class
+from exp_reaching_goals.agent_formal_constrained import sender_class, receiver_class
 from exp_reaching_goals.episode_generator import run_an_episode
 from exp_reaching_goals.buffer_class import buffer_class
 from exp_reaching_goals.reaching_goals_utils import plot_with_wandb, init_wandb
@@ -26,12 +27,14 @@ def set_Env_and_Agents(config, device):
     return env, sender, receiver
 
 
-def train(env, sender, receiver, config, device, using_wandb=False):
+def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
     print('----------------------------------------')
     print('Training.')
 
     if using_wandb:
         chart_name_list, run_handle = init_wandb(config)
+        if not seed is None:
+            run_handle.tags = run_handle.tags + (str(seed),)
 
     i_episode = 0
     i_save_flag = 0
