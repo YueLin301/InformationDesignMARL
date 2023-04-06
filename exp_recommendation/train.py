@@ -31,11 +31,12 @@ def set_Env_and_Agents(config, pro_type='regularized'):
     return env, pro, hr
 
 
-def train(config, env, pro, hr, using_wandb=False, group_name=None, seed=None):
+def train(config, env, pro, hr, using_wandb=False, group_name=None, seed=None, pro_type='formal_constrained'):
     print('----------------------------------------')
 
     if using_wandb:
-        chart_name_list, run_handle = init_wandb(group_name, config.pro.sender_objective_alpha)
+        alpha = config.pro.sender_objective_alpha if not pro_type == 'baseline' else config.pro.sender_objective_alpha - 1000
+        chart_name_list, run_handle = init_wandb(group_name, alpha)
         if not seed is None:
             run_handle.tags = run_handle.tags + (str(seed),)
     fake_buffer = []  # for ploting curves (local)
@@ -58,7 +59,7 @@ def train(config, env, pro, hr, using_wandb=False, group_name=None, seed=None):
             buffer, fake_buffer = run_an_episode(env, pro, hr, fake_buffer)
             if using_wandb:
                 plot_with_wandb(chart_name_list, buffer, i_episode, config.env.sample_n_students)
-            pro.update_infor_design(buffer, i_episode)
+            pro.update_infor_design(buffer)
             i_episode += config.env.sample_n_students
             pbar.update(config.env.sample_n_students)
 

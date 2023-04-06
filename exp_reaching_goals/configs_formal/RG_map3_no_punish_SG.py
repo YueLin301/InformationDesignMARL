@@ -1,11 +1,10 @@
-# SGOC
 from utils.configdict import ConfigDict
 from exp_reaching_goals.configs.path_config import config_path
 
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'RG_map3_no_punish'
+config.main.exp_name = 'RG_map3_no_punish_SG'
 
 # ==================================================
 config.env = ConfigDict()
@@ -42,9 +41,9 @@ config.sender.lr_critic_Gi = 3e-4
 config.sender.lr_critic_Gj = 3e-4
 config.sender.lr_signal = 1.5e-4
 config.sender.gamma = 0.99
-config.sender.sender_objective_alpha = 0.005
-config.sender.sender_constraint_right = 50
-config.sender.coe_for_recovery_fromgumbel = 2
+config.sender.sender_objective_alpha = 0
+config.sender.sender_constraint_right = 0
+config.sender.coe_for_recovery_fromgumbel = 0
 if config.sender.gaussian_distribution:
     config.sender.gaussian_var = 2
 config.sender.epsilon_greedy = 0

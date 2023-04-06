@@ -111,7 +111,7 @@ class pro_formal_constrained():
 
         return message_onehot, phi_current, message
 
-    def update_infor_design(self, buffer, i_episode):
+    def update_infor_design(self, buffer):
         obs = buffer.obs_pro
         obs_onehot = int_to_onehot(obs, k=2)
         a = buffer.a_int_hr

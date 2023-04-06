@@ -1,8 +1,8 @@
 import copy
-from DIAL.env import SwitchGame, DotDic
-from DIAL.agent import CNet, Agent
-from DIAL.config import opts
-from DIAL.train import Arena
+from DIAL_origin.env import SwitchGame, DotDic
+from DIAL_origin.agent import CNet, Agent
+from DIAL_origin.config import opts
+from DIAL_origin.train import Arena
 
 if __name__ == '__main__':
     game = SwitchGame(DotDic(opts))

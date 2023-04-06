@@ -71,7 +71,7 @@ class critic(net_base):
     def __init__(self, input_n_channels, output_dims, config, belongto, name='critic', device=None):
         super(critic, self).__init__(input_n_channels, config, belongto, name=name, device=device)
 
-        self.action_dim = config.env.dim_action
+        # self.action_dim = config.env.dim_action
         self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, output_dims, dtype=torch.double))
 
         self.device = device
@@ -97,7 +97,7 @@ class signaling_net(net_base):
         self.using_gaussian_distribution = config.sender.gaussian_distribution
         self.gaussian_var = config.sender.gaussian_var if self.using_gaussian_distribution else None
 
-        # not using gaussian: logits of 0 or 1, for every pixel
+        # not using gaussian: one-hot, for every pixel
         # using gaussian: mu(2 dims of the apple position)
         self.output_dim = self.message_height * self.message_width if not self.using_gaussian_distribution else 2
         self.output_layer_logits = nn.Sequential(

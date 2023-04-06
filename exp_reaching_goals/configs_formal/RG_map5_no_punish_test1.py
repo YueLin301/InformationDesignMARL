@@ -20,7 +20,7 @@ config.env.punish_amplifier = 0
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 125000
+config.train.n_episodes = 250000
 config.train.n_episodes *= 2
 config.train.period = 500
 # config.train.n_episodes = 50

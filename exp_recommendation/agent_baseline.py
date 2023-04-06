@@ -57,7 +57,6 @@ class pro_baseline_class():
             critic_params[layer].grad.data.clamp_(-1, 1)
         self.critic_optimizer.step()
 
-        #
         a_int_hr = buffer.a_int_hr
         a_onehot_hr = int_to_onehot(a_int_hr, k=2)
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
@@ -142,23 +141,16 @@ class pro_baseline_class():
         Gj_obs_and_a2 = self.critic_forhr(obs_and_a2)
         Gj_obs_and_a = torch.cat([Gj_obs_and_a1, Gj_obs_and_a2], dim=1)
 
-        # constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
-        # if constraint_left < self.config.pro.constraint_right:
-        constraint_term_1st = torch.mean(phi_sigma * torch.sum(pi.detach() * Gj_obs_and_a.detach(), dim=1))
-        constraint_term_2nd = torch.mean(phi_sigma.detach() * torch.sum(pi * Gj_obs_and_a.detach(), dim=1))
-
-        gradeta_constraint_term_1st = torch.autograd.grad(constraint_term_1st,
+        constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
+        if constraint_left < self.config.pro.constraint_right:
+            constraint_term = torch.mean(
+                phi_sigma * torch.sum(
+                    (pi.detach() - pi_counterfactual.detach())
+                    * Gj_obs_and_a.detach(), dim=1))
+            gradeta_constraint_term = torch.autograd.grad(constraint_term,
                                                           list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_term_2nd = torch.autograd.grad(constraint_term_2nd,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-
-        gradeta_constraint_term_1st_flatten = flatten_layers(gradeta_constraint_term_1st, 0)
-        gradeta_constraint_term_2nd_flatten = flatten_layers(gradeta_constraint_term_2nd,
-                                                             0) * self.config.pro.coe_for_recovery_fromgumbel
-
-        gradeta_constraint_flatten = gradeta_constraint_term_1st_flatten \
-                                     + gradeta_constraint_term_2nd_flatten
-        gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
+            gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term, 0)
+            gradeta_flatten = gradeta_flatten + self.config.pro.sender_objective_alpha * gradeta_constraint_flatten
 
         # reform to be in original shape
         gradeta = []

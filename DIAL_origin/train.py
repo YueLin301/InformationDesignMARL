@@ -1,7 +1,7 @@
 import torch
 import copy
 from torch.autograd import Variable
-from DIAL.env import DotDic
+from DIAL_origin.env import DotDic
 
 class Arena:
     def __init__(self, opt, game):

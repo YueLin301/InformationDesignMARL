@@ -1,11 +1,10 @@
-# SGOC
 from utils.configdict import ConfigDict
 from exp_reaching_goals.configs.path_config import config_path
 
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'RG_map3_no_punish'
+config.main.exp_name = 'RG_map3_gam01_lam0_PG'
 
 # ==================================================
 config.env = ConfigDict()
@@ -17,7 +16,7 @@ config.env.dim_action = 4
 config.env.bounded = True
 
 config.env.reward_amplifier = 20
-config.env.punish_amplifier = 0
+config.env.punish_amplifier = 5
 
 # ==================================================
 config.train = ConfigDict()
@@ -33,6 +32,7 @@ config.path = config_path
 
 # ==================================================
 config.sender = ConfigDict()
+config.sender.type = 'PG'
 config.sender.honest = False
 config.sender.regradless_agent_pos = False
 config.sender.gaussian_distribution = False
@@ -42,9 +42,9 @@ config.sender.lr_critic_Gi = 3e-4
 config.sender.lr_critic_Gj = 3e-4
 config.sender.lr_signal = 1.5e-4
 config.sender.gamma = 0.99
-config.sender.sender_objective_alpha = 0.005
-config.sender.sender_constraint_right = 50
-config.sender.coe_for_recovery_fromgumbel = 2
+config.sender.sender_objective_alpha = -1
+config.sender.sender_constraint_right = 0
+config.sender.coe_for_recovery_fromgumbel = 0
 if config.sender.gaussian_distribution:
     config.sender.gaussian_var = 2
 config.sender.epsilon_greedy = 0

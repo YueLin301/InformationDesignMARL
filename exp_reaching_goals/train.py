@@ -2,6 +2,7 @@ import wandb
 import math
 # from exp_reaching_goals.agent_class import sender_class, receiver_class
 from exp_reaching_goals.agent_formal_constrained import sender_class, receiver_class
+from exp_reaching_goals.agent_PG_class import sender_PG_class
 from exp_reaching_goals.episode_generator import run_an_episode
 from exp_reaching_goals.buffer_class import buffer_class
 from exp_reaching_goals.reaching_goals_utils import plot_with_wandb, init_wandb
@@ -13,7 +14,13 @@ def set_Env_and_Agents(config, device):
     print('Setting agents and env.')
 
     env = reaching_goals_env(config.env)
-    sender = sender_class(config=config, device=device) if not config.sender.honest else None
+    if not config.sender.honest:
+        if hasattr(config.sender, 'type'):
+            sender = sender_PG_class(config=config, device=device)
+        else:
+            sender = sender_class(config=config, device=device)
+    else:
+        sender = None
     receiver = receiver_class(config=config, device=device)
 
     if not config.sender.honest:
