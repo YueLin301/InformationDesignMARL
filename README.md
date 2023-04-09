@@ -2,7 +2,7 @@
 
 This repository presents a hasty and rudimentary implementation 
 of all experiments mentioned in [our paper (arxiv version)](). 
-In this version, the constrained optimization problem is implemented by Lagrangian method.
+In this version, the constrained optimization problem is implemented by dual gradient descent method.
 
 All the experimental results can be reproduced directly through this repo, 
 if you configure your own [wandb](https://wandb.ai) keys correctly.
