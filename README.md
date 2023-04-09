@@ -15,7 +15,10 @@ so as to facilitate rapid iteration and trial-and-error.
 
 ## For Reproduction
 You can run the experiments by running `main.py` in the corresponding `exp_` prefix folder.
-1. Create a file `mykey.py` in the `exp_` prefix folder.
+1. Create a file `mykey.py` in the `exp_` prefix folder. 
+Experiments that have been successful and have relatively good performance include:
+    - Recommendation
+    - Reaching Goals (map `3x3`)
 2. Edit `mykey.py`:
 ```python
 wandb_login_key = '' # Your login API key
@@ -24,3 +27,4 @@ wandb_entity_name = ''
 ```
 3. Check your wandb configuration and fill the empty strings with your private information. 
 See the [wandb quickstart](https://docs.wandb.ai/quickstart).
+4. If you have any queries or concerns, please do not hesitate to reach out to me. 
