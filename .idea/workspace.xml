@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="07f24bc3-abd8-4c93-99b0-d55ebe0ca676" name="Changes" comment="quick commit" />
+    <list default="true" id="07f24bc3-abd8-4c93-99b0-d55ebe0ca676" name="Changes" comment="quick commit">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/InformationDesignMARL.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -38,17 +47,22 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;ShowUsagesActions.previewPropertyKey&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "ShowUsagesActions.previewPropertyKey": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "last_opened_file_path": "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_reaching_goals",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  },
+  "keyToStringList": {
+    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "GitIgnore"
+    ]
   }
-}</component>
+}]]></component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
       <console-settings>
@@ -58,10 +72,10 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/exp_reaching_goals/configs_formal" />
       <recent name="$PROJECT_DIR$/exp_reaching_goals" />
-      <recent name="$PROJECT_DIR$/exp_DIAL" />
       <recent name="$PROJECT_DIR$/exp_recommendation" />
+      <recent name="$PROJECT_DIR$/exp_reaching_goals/configs_formal" />
+      <recent name="$PROJECT_DIR$/exp_DIAL" />
       <recent name="$PROJECT_DIR$/exp_recommendation/configs" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -308,7 +322,7 @@
       <workItem from="1680774240897" duration="5522000" />
       <workItem from="1681034417599" duration="8109000" />
       <workItem from="1681047056848" duration="42000" />
-      <workItem from="1681047100454" duration="153000" />
+      <workItem from="1681047100454" duration="877000" />
     </task>
     <task id="LOCAL-00001" summary="refactor">
       <created>1668931216345</created>
