@@ -28,3 +28,6 @@ wandb_entity_name = ''
 3. Check your wandb configuration and fill the empty strings with your private information. 
 See the [wandb quickstart](https://docs.wandb.ai/quickstart).
 4. If you have any queries or concerns, please do not hesitate to reach out to me. 
+
+## DIAL
+`DIAL_origin` is from [this implementation](https://colab.research.google.com/gist/MJ10/2c0d1972f3dd1edcc3cd17c636aac8d2/dial.ipynb).
