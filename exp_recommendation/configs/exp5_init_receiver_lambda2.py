@@ -18,7 +18,7 @@ config.pro.lr_signal = 1e-3
 config.pro.coe_for_recovery_fromgumbel = 2
 
 config.pro.constraint_right = 0
-config.pro.sender_objective_alpha = 2  # Lagrangian lambda
+config.pro.sender_objective_alpha = 2.3  # Lagrangian lambda
 
 config.pro.initialize = False
 
@@ -39,8 +39,8 @@ config.hr.entropy_coe = 0
 config.hr.initialize = True
 if config.hr.initialize:
     # policy of hr is initialized to be obedient
-    config.hr.actor_params = torch.tensor([[5, -5],
-                                           [-5, 5]], dtype=torch.double).unsqueeze(dim=0)
+    config.hr.actor_params = torch.tensor([[2, -2],
+                                           [-2, 2]], dtype=torch.double).unsqueeze(dim=0)
 
 # ========================================
 '''train'''

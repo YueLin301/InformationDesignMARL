@@ -15,21 +15,16 @@ config.pro.fixed_signaling_scheme = False
 config.pro.lr_pro_critic = 1.5e-3
 config.pro.lr_signal = 1.5e-3
 
-# config.pro.coe_for_recovery_fromgumbel = 1
-config.pro.coe_for_recovery_fromgumbel = 1.7
+config.pro.coe_for_recovery_fromgumbel = 2
 
 config.pro.constraint_right = 0
-# config.pro.sender_objective_alpha = 1  # Lagrangian lambda
-# config.pro.sender_objective_alpha =  10  # Lagrangian lambda
-# config.pro.sender_objective_alpha = 50  # Lagrangian lambda
-# config.pro.sender_objective_alpha = 100  # Lagrangian lambda
-config.pro.sender_objective_alpha = 200  # Lagrangian lambda
+config.pro.sender_objective_alpha = 2  # Lagrangian lambda
 
 config.pro.initialize = True
 if config.pro.initialize:
     # signaling scheme of pro is initialized to be optimal
-    config.pro.signaling_params = torch.tensor([[10, 0],
-                                                [10, 10]], dtype=torch.double).unsqueeze(dim=0)
+    config.pro.signaling_params = torch.tensor([[5, -5],
+                                                [5, 5]], dtype=torch.double).unsqueeze(dim=0)
 
 # ========================================
 
@@ -42,6 +37,8 @@ config.hr.lr_critic = 2e-3
 config.hr.lr_actor = 2e-3
 
 config.hr.entropy_coe = 1e-3
+# in BCE equilibriums, the receiver's payoff is independent on its policy
+# if the entorpy_coefficient is positive, the policy of receiver will converge to unifrom distribution when observing signal1
 
 config.hr.initialize = True
 if config.hr.initialize:

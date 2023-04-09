@@ -3,8 +3,10 @@ import numpy as np
 from exp_recommendation.episode_generator import run_an_episode
 
 import matplotlib.pyplot as plt
-from scipy.interpolate import make_interp_spline  # 曲线插值
 from scipy.signal import savgol_filter
+
+import wandb
+from exp_recommendation.mykey import wandb_login_key, wandb_project_name, wandb_entity_name
 
 
 def set_net_params(net, params):
@@ -142,15 +144,15 @@ def flatten_layers(gradtensor, dim=0):
 
 
 def set_seed(myseed):
-    np.random.seed(myseed)  # numpy的随机种子
-    torch.manual_seed(myseed)  # torch的随机种子
+    np.random.seed(myseed)  # numpy seed
+    torch.manual_seed(myseed)  # torch seed
     torch.cuda.manual_seed(myseed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
 
 def plot_create_canvas():
-    fig = plt.figure(figsize=(8, 6), dpi=300)  # 画布
+    fig = plt.figure(figsize=(8, 6), dpi=300)  # canvas
     fig.canvas.manager.set_window_title('Recommendation Letter Env.')
 
     reward_pro_curve = fig.add_subplot(4, 2, 1)
@@ -165,7 +167,7 @@ def plot_create_canvas():
     pi_hire_when_notrec_curve = fig.add_subplot(4, 2, 6)
     pi_hire_when_rec_curve = fig.add_subplot(4, 2, 8)
 
-    # 设置标题
+    # title
     reward_pro_curve.set_title('Reward of Professor')
     reward_hr_curve.set_title('Reward of HR')
     reward_compare_curve.set_title('Reward Comparation')
@@ -175,16 +177,16 @@ def plot_create_canvas():
     pi_hire_when_notrec_curve.set_title('P( hire | signal=0 )')
     pi_hire_when_rec_curve.set_title('P( hire | signal=1 )')
 
-    # 科学计数法
+    # scientific notation
     for axis in fig.axes:
         axis.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 
-    # 为重合的3张图设置标注legent
+    # legends
     # reward_compare_curve.legend(['R of Pro.', 'R of HR'])
     # pi_hire_when_notrec_curve.legend(['P(hire|signal=0)', 'P(signal=0|bad)'])
     # pi_hire_when_rec_curve.legend(['P(hire|signal=1)', 'P(signal=1|good)'])
 
-    # 设置坐标轴范围
+    # axes limits
     ylim_min = -0.2
     ylim_max = 1.2
     phi_rec_when_bad_curve.set_ylim(ylim_min, ylim_max)
@@ -247,24 +249,77 @@ def plot_all(fake_buffer, fig, reward_pro_curve, reward_hr_curve,
 
     pi_hire_when_notrec_curve.plot(y_pi_hire_when_notrec)
     pi_hire_when_rec_curve.plot(y_pi_hire_when_rec)
-    # 画一起去看看趋势
     # pi_hire_when_notrec_curve.plot(x_smooth_phi_rec_when_bad, 1 - y_smooth_phi_rec_when_bad)
     # pi_hire_when_rec_curve.plot(x_smooth_phi_rec_when_good, y_smooth_phi_rec_when_good)
 
 
-'''
-def run_episode_pls_print():
-    print('----------------------------------------')
-    if ith_episode or type(ith_episode) is int and ith_episode == 0:
-        print('The ' + str(ith_episode) + ' episode finished.')
-    print('pro_obs:\t', student_charc_maptoword[obs_pro.detach().int()])
-    message_idx = 1 if message_pro.detach() > 0.5 else 0
-    print('message:\t', professor_action_maptoword[message_idx])
-    print('mess_OH:\t', message_onehot_pro.tolist())
-    print('pro_prob:\t', message_prob_pro.detach().tolist())
-    action_idx = 1 if a_int_hr.detach() > 0.5 else 0
-    print('hr_action:\t', HR_action_maptoword[action_idx])
-    print('hr_prob:\t', a_prob_hr.detach().tolist())
-    print('pro_reward:\t', reward_pro)
-    print('hr_reward:\t', reward_hr)
-'''
+def init_wandb(group_name, sender_objective_alpha):
+    # wandb.login(key=wandb_login_key)
+    run_handle = wandb.init(project=wandb_project_name, entity=wandb_entity_name, reinit=True, group=group_name,
+                            config={"pro_objective_alpha": sender_objective_alpha})
+
+    chart_name_list = ['reward_sender',
+                       'reward_receiver',
+                       'social_welfare',
+
+                       'prob_of_signaling_1_when_bad',
+                       'prob_of_signaling_1_when_good',
+                       'prob_of_hiring_when_0',
+                       'prob_of_hiring_when_1',
+                       ]
+
+    for chart_name in chart_name_list:
+        wandb.define_metric(chart_name)
+
+    return chart_name_list, run_handle
+
+
+def plot_with_wandb(chart_name_list, batch, i_episode, env_sample_n_students):
+    entry = dict(zip(chart_name_list, [0] * len(chart_name_list)))
+
+    state = batch.obs_pro.detach()
+    message_pro = batch.message_pro.detach()
+
+    reward_pro_tensor = batch.reward_pro.detach()
+    reward_hr_tensor = batch.reward_hr.detach()
+    reward_tot_tensor = reward_pro_tensor + reward_hr_tensor
+
+    message_prob_pro = batch.message_prob_pro.detach()
+    a_prob_hr = batch.a_prob_hr.detach()
+
+    entry['reward_sender'] = float(torch.mean(reward_pro_tensor))
+    entry['reward_receiver'] = float(torch.mean(reward_hr_tensor))
+    entry['social_welfare'] = float(torch.mean(reward_tot_tensor))
+
+    idx_bad_stu = (state == 0).nonzero().squeeze()
+    idx_good_stu = (state == 1).nonzero().squeeze()
+    phi_when_bad = torch.index_select(message_prob_pro, 0, idx_bad_stu)
+    phi_when_good = torch.index_select(message_prob_pro, 0, idx_good_stu)
+    entry['prob_of_signaling_1_when_bad'] = float(torch.mean(phi_when_bad, dim=0)[1])
+    entry['prob_of_signaling_1_when_good'] = float(torch.mean(phi_when_good, dim=0)[1])
+
+    idx_message_0 = (message_pro == 0).nonzero().squeeze()
+    idx_message_1 = (message_pro == 1).nonzero().squeeze()
+    pi_when_0 = torch.index_select(a_prob_hr, 0, idx_message_0)
+    pi_when_1 = torch.index_select(a_prob_hr, 0, idx_message_1)
+    entry['prob_of_hiring_when_0'] = float(torch.mean(pi_when_0, dim=0)[1])
+    entry['prob_of_hiring_when_1'] = float(torch.mean(pi_when_1, dim=0)[1])
+
+    wandb.log(entry, step=i_episode * env_sample_n_students)
+
+    # for idx in range(len(state)):
+    #     entry['reward_sender'] = float(reward_pro_tensor[idx])
+    #     entry['reward_receiver'] = float(reward_hr_tensor[idx])
+    #     entry['social_welfare'] = float(reward_tot_tensor[idx])
+    #
+    #     if state[idx] == 0:
+    #         entry['prob_of_signaling_1_when_bad'] = float(message_prob_pro[idx][1])
+    #     else:
+    #         entry['prob_of_signaling_1_when_good'] = float(message_prob_pro[idx][1])
+    #
+    #     if message_pro[idx] == 0:
+    #         entry['prob_of_hiring_when_0'] = float(a_prob_hr[idx][1])
+    #     else:
+    #         entry['prob_of_hiring_when_1'] = float(a_prob_hr[idx][1])
+    #     wandb.log(entry, step=idx + i_episode)
+    return

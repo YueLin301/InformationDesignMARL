@@ -15,6 +15,8 @@ config.pro.fixed_signaling_scheme = False
 config.pro.lr_pro_critic = 1.5e-3
 config.pro.lr_signal = 1.5e-3
 
+config.pro.coe_for_recovery_fromgumbel = 2
+
 config.pro.constraint_right = 0
 config.pro.sender_objective_alpha = 0  # Lagrangian lambda
 

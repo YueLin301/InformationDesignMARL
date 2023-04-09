@@ -31,7 +31,8 @@ config.hr.fixed_policy = False
 config.hr.lr_critic = 1e-3
 config.hr.lr_actor = 3e-3
 
-config.hr.entropy_coe = 1e-3
+# config.hr.entropy_coe = 1e-3
+config.hr.entropy_coe = 0
 
 config.hr.initialize = False
 
