@@ -1,0 +1,1 @@
+{"reward_sender": 0.39, "reward_receiver": 0.35, "social_welfare": 0.74, "prob_of_signaling_1_when_bad": 0.0010436476258671344, "prob_of_signaling_1_when_good": 0.998577594315034, "prob_of_hiring_when_0": 0.008321029051447774, "prob_of_hiring_when_1": 0.9728372946206695, "_timestamp": 1681396918, "_runtime": 2152, "_step": 98400000}

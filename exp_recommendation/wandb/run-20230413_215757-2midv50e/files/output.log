@@ -1,0 +1,35 @@
+
+Start training.
+  0% 0/3000000.0 [00:00<?, ?it/s]Traceback (most recent call last):
+  File "/opt/anaconda3/envs/rlbasic/lib/python3.8/code.py", line 90, in runcode
+    exec(code, self.locals)
+  File "<input>", line 1, in <module>
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_bundle/pydev_umd.py", line 198, in runfile
+    pydev_imports.execfile(filename, global_vars, local_vars)  # execute the script
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_imps/_pydev_execfile.py", line 18, in execfile
+    exec(compile(contents+"\n", file, 'exec'), glob, loc)
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/main.py", line 87, in <module>
+    main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True, group_name="recom_DGD")
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/main.py", line 46, in main
+    fake_buffer = train(config, env, pro, hr, using_wandb=using_wandb, group_name=group_name, seed=myseed,
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/train.py", line 62, in train
+    pro.update_infor_design(buffer)
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/agent_formal_constrained.py", line 193, in update_infor_design
+    if lambda_table_temp > 0:
+RuntimeError: Boolean value of Tensor with more than one value is ambiguous
+Traceback (most recent call last):
+  File "/opt/anaconda3/envs/rlbasic/lib/python3.8/code.py", line 90, in runcode
+    exec(code, self.locals)
+  File "<input>", line 1, in <module>
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_bundle/pydev_umd.py", line 198, in runfile
+    pydev_imports.execfile(filename, global_vars, local_vars)  # execute the script
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_imps/_pydev_execfile.py", line 18, in execfile
+    exec(compile(contents+"\n", file, 'exec'), glob, loc)
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/main.py", line 87, in <module>
+    main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True, group_name="recom_DGD")
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/main.py", line 46, in main
+    fake_buffer = train(config, env, pro, hr, using_wandb=using_wandb, group_name=group_name, seed=myseed,
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/train.py", line 62, in train
+    pro.update_infor_design(buffer)
+  File "/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/agent_formal_constrained.py", line 193, in update_infor_design
+    if lambda_table_temp > 0:

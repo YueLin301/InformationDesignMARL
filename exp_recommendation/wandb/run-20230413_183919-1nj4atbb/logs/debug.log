@@ -1,0 +1,27 @@
+2023-04-13 18:39:19,861 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Loading settings from /Users/luna/.config/wandb/settings
+2023-04-13 18:39:19,861 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Loading settings from /Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/wandb/settings
+2023-04-13 18:39:19,861 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Loading settings from environment variables: {}
+2023-04-13 18:39:19,861 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Inferring run settings from compute environment: {'program_relpath': 'exp_recommendation/main.py', 'program': '/Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/main.py'}
+2023-04-13 18:39:19,862 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Applying login settings: {'api_key': '***REDACTED***'}
+2023-04-13 18:39:19,862 INFO    MainThread:56010 [wandb_setup.py:_flush():75] Applying login settings: {'api_key': '***REDACTED***'}
+2023-04-13 18:39:19,862 INFO    MainThread:56010 [wandb_init.py:_log_setup():405] Logging user logs to /Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/wandb/run-20230413_183919-1nj4atbb/logs/debug.log
+2023-04-13 18:39:19,862 INFO    MainThread:56010 [wandb_init.py:_log_setup():406] Logging internal logs to /Users/luna/Documents/RL/project/7_IND+MARL/InformationDesignMARL/exp_recommendation/wandb/run-20230413_183919-1nj4atbb/logs/debug-internal.log
+2023-04-13 18:39:19,863 INFO    MainThread:56010 [wandb_init.py:init():439] calling init triggers
+2023-04-13 18:39:19,863 INFO    MainThread:56010 [wandb_init.py:init():442] wandb.init called with sweep_config: {}
+config: {'pro_objective_alpha': 5}
+2023-04-13 18:39:19,863 INFO    MainThread:56010 [wandb_init.py:init():492] starting backend
+2023-04-13 18:39:19,863 INFO    MainThread:56010 [backend.py:_multiprocessing_setup():99] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2023-04-13 18:39:19,893 INFO    MainThread:56010 [backend.py:ensure_launched():219] starting backend process...
+2023-04-13 18:39:19,906 INFO    MainThread:56010 [backend.py:ensure_launched():224] started backend process with pid: 56058
+2023-04-13 18:39:19,908 INFO    MainThread:56010 [wandb_init.py:init():501] backend started and connected
+2023-04-13 18:39:19,918 INFO    MainThread:56010 [wandb_init.py:init():565] updated telemetry
+2023-04-13 18:39:19,958 INFO    MainThread:56010 [wandb_init.py:init():596] communicating run to backend with 30 second timeout
+2023-04-13 18:39:22,069 INFO    MainThread:56010 [wandb_run.py:_on_init():1759] communicating current version
+2023-04-13 18:39:23,321 INFO    MainThread:56010 [wandb_run.py:_on_init():1763] got version response upgrade_message: "wandb version 0.14.2 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2023-04-13 18:39:23,321 INFO    MainThread:56010 [wandb_init.py:init():625] starting run threads in backend
+2023-04-13 18:39:28,331 INFO    MainThread:56010 [wandb_run.py:_console_start():1733] atexit reg
+2023-04-13 18:39:28,332 INFO    MainThread:56010 [wandb_run.py:_redirect():1606] redirect: SettingsConsole.REDIRECT
+2023-04-13 18:39:28,333 INFO    MainThread:56010 [wandb_run.py:_redirect():1611] Redirecting console.
+2023-04-13 18:39:28,335 INFO    MainThread:56010 [wandb_run.py:_redirect():1667] Redirects installed.
+2023-04-13 18:39:28,335 INFO    MainThread:56010 [wandb_init.py:init():664] run started, returning control to user process
