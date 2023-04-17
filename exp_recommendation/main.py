@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append('../')
+
 import matplotlib.pyplot as plt
 from exp_recommendation.rec_utils import print_params, set_seed, plot_create_canvas, plot_all, validate
 from exp_recommendation.train import train, set_Env_and_Agents
@@ -59,8 +63,9 @@ def main(config, seeds, using_wandb=False, group_name=None, pro_type='regularize
 
 
 if __name__ == '__main__':
-    seeds = [i for i in range(0, 3)]
-    # seeds = [9]
+    # seeds = [i for i in range(0, 8)]
+    seeds_raw = input("input seeds:").split(' ')
+    seeds = [int(i) for i in seeds_raw]
 
     ############################################################
 
@@ -83,8 +88,8 @@ if __name__ == '__main__':
 
     from exp_recommendation.formal_config import config
 
-    # main(config, seeds=seeds, pro_type='formal_constrained')
-    main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True, group_name="recom_DGD")
+    main(config, seeds=seeds, pro_type='formal_constrained')
+    # main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True, group_name="recom_DGD")
 
     ############################################################
 

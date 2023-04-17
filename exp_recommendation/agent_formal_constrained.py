@@ -161,7 +161,9 @@ class pro_formal_constrained():
         phi_sigma_st = self.signaling_net(obs_onehot)  # (T,M)
         pi_a_sigma_table = self.hr.actor(self.message_table_onehot)  # (M,N)
 
-        sigma_cf_table = torch.rand_like(self.message_table_onehot)
+        # sigma_cf_table = torch.rand_like(self.message_table_onehot)
+        sigma_cf_table_int = torch.randint(2, self.message_table.shape)
+        sigma_cf_table = int_to_onehot(sigma_cf_table_int, 2)
         pi_a_sigmacf_table = self.hr.actor(sigma_cf_table)  # (M,N)
 
         pi_a_sigma_delta = pi_a_sigma_table - pi_a_sigmacf_table

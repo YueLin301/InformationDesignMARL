@@ -66,6 +66,13 @@ class sender_class(object):
 
         self.temperature = 1
 
+        self.message_num = self.config.env.map_height * self.config.env.map_width
+        self.message_table = torch.arange(self.message_num, device=device)
+        self.message_table_onehot = torch.nn.functional.one_hot(self.message_table).view(self.message_num,
+                                                                                         self.config.env.map_height,
+                                                                                         self.config.env.map_width)
+        self.lambda_table = torch.rand(self.message_num, device=device)
+
     def build_connection(self, receiver):
         self.receiver = receiver
 
@@ -175,54 +182,102 @@ class sender_class(object):
         term = torch.mean(advantage_i.detach() * (log_phi_sigma
                                                   + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel
                                                   ))
-        # term1 = torch.mean(Gi.detach() * log_phi_sigma)
-        # term2 = torch.mean(Gi.detach() * log_pij_aj)
-        # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
-        # gradeta2 = torch.autograd.grad(term2, list(self.signaling_net.parameters()), retain_graph=True)
 
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 
-        ''' BCE Obedience Constraint (Lagrangian) '''
-        if not self.config.env.aligned_object:
-            batch_len = aj.shape[0]
-            sigma_counterfactual_index_flatten = torch.randint(self.config.env.map_height * self.config.env.map_width,
-                                                               size=(batch_len,)).to(self.device)  # negative sampling
-            sigma_counterfactual_index = [
-                torch.floor(sigma_counterfactual_index_flatten / self.config.env.map_height).long().unsqueeze(dim=0),
-                (sigma_counterfactual_index_flatten % self.config.env.map_width).unsqueeze(dim=0)]
-            sigma_counterfactual_index = torch.cat(sigma_counterfactual_index).to(self.device)
-            sigma_counterfactual = torch.zeros(batch_len, self.config.env.map_height, self.config.env.map_width,
-                                               dtype=torch.double).to(self.device)
-            sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
-            # sigma_counterfactual_np = np.array(sigma_counterfactual)
-            sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
-            obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-            obs_and_message_counterfactual_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
-                                                                 sigma_counterfactual], dim=1)
-            _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
+        ''' BCE Obedience Constraint (Dual Gradient Descent) '''
+        # T: buffer length, the amount of time-steps (s_t, oj_t)
+        # M: the amount of signals
+        # N: the amount of actions
+        _, phi_sigma_st = self.send_message(obs_sender)  # (T,M)
 
-            # s, aj
-            Gj_table = self.critic_Gj(obs_sender)
-            # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
-            # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
-            term = phi_sigma * torch.sum(
-                (pij.detach() - pij_counterfactual.detach())
-                * Gj_table.detach(), dim=1)
+        # ojt_sigma_table = torch.cat([obs_sender[:, 0:1, :, :], message], dim=1)
+        ojt = obs_sender[:, 0:1, :, :]  # [ojt_0, message_0], [ojt_0, message_1], [ojt_0, message_2]
+        ojt_repeat = ojt.unsqueeze(dim=1).expand(-1, self.message_num, -1, -1, -1)
+        message_table = self.message_table_onehot.unsqueeze(dim=1).unsqueeze(dim=0).expand(ojt.shape[0], -1, -1, -1, -1)
+        ojt_message_talbe = torch.cat([ojt_repeat, message_table], dim=2)
 
-            constraint_left = torch.mean(term)
-            if constraint_left < self.config.sender.sender_constraint_right:
-                gradeta_constraint_term = torch.autograd.grad(constraint_left, list(self.signaling_net.parameters()),
-                                                               retain_graph=True)
-                gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term)
+        shape_temp = [ojt.shape[0] * self.message_num] + list(ojt_message_talbe.shape[2:])
+        ojt_message_reshape = ojt_message_talbe.reshape(shape_temp)  # (T*M)
 
-                if self.config.sender.sender_objective_alpha >= 1:
-                    gradeta_flatten = gradeta_flatten / self.config.sender.sender_objective_alpha + gradeta_constraint_flatten
-                elif 0 <= self.config.sender.sender_objective_alpha < 1:
-                    gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
-                else:
-                    # raise IOError
-                    pass
+        _, pi_a_sigma_table = self.receiver.choose_action(ojt_message_reshape)  # (T*M,N)
+
+        #######
+        sigma_cf_table = torch.rand_like(self.message_table_onehot)
+        pi_a_sigmacf_table = self.hr.actor(sigma_cf_table)  # (M,N)
+
+        pi_a_sigma_delta = pi_a_sigma_table - pi_a_sigmacf_table
+        Pr_st_sigma_a = torch.einsum('ij, jk -> ijk', phi_sigma_st, pi_a_sigma_delta.detach())  # (T,M,N)
+
+        # reshape
+        TMN = Pr_st_sigma_a.shape
+        Pr_sigma_st_a_delta = torch.transpose(Pr_st_sigma_a, 0, 1) \
+            .reshape(TMN[1], TMN[0] * TMN[2])  # (T,M,N) -> (M,T,N) -> (M,T*N)
+
+        # (s,a) onehot -> critic -> w^j(s,a)
+        sa_raw = torch.cartesian_prod(obs, self.aj_table_int)
+        sa_s_onehot = int_to_onehot(sa_raw[:, 0], k=2)
+        sa_a_onehot = int_to_onehot(sa_raw[:, 1], k=2)
+        sa_onehot = torch.cat([sa_s_onehot, sa_a_onehot], dim=1)
+
+        wj_st_a = self.critic_forhr(sa_onehot).squeeze()  # (T*N)
+
+        C_sigma_table = torch.einsum('ij,j->i', Pr_sigma_st_a_delta, wj_st_a.detach()) / TMN[0]
+        # lambda_table = self.lambda_net(self.message_table_onehot).squeeze()
+        # lambda_C = torch.sum(lambda_table.detach() * C_sigma_table)
+        lambda_C = torch.sum(self.lambda_table * C_sigma_table)
+
+        gradeta_lambda_C = torch.autograd.grad(lambda_C, list(self.signaling_net.parameters()), retain_graph=True)
+        gradeta_lambda_C_flatten = flatten_layers(gradeta_lambda_C, 0)
+        gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_lambda_C_flatten
+
+        ## lambda update
+        lambda_table_temp = self.lambda_table - self.sender_objective_alpha \
+                            * (C_sigma_table - self.config.pro.constraint_right)
+        flag = lambda_table_temp > 0
+        flag = flag.type(torch.double)
+        self.lambda_table = lambda_table_temp * flag
+
+        # if not self.config.env.aligned_object:
+        #     batch_len = aj.shape[0]
+        #     sigma_counterfactual_index_flatten = torch.randint(self.config.env.map_height * self.config.env.map_width,
+        #                                                        size=(batch_len,)).to(self.device)  # negative sampling
+        #     sigma_counterfactual_index = [
+        #         torch.floor(sigma_counterfactual_index_flatten / self.config.env.map_height).long().unsqueeze(dim=0),
+        #         (sigma_counterfactual_index_flatten % self.config.env.map_width).unsqueeze(dim=0)]
+        #     sigma_counterfactual_index = torch.cat(sigma_counterfactual_index).to(self.device)
+        #     sigma_counterfactual = torch.zeros(batch_len, self.config.env.map_height, self.config.env.map_width,
+        #                                        dtype=torch.double).to(self.device)
+        #     sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
+        #     # sigma_counterfactual_np = np.array(sigma_counterfactual)
+        #     sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
+        #     obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+        #     obs_and_message_counterfactual_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
+        #                                                          sigma_counterfactual], dim=1)
+        #     _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
+        #
+        #     # s, aj
+        #     Gj_table = self.critic_Gj(obs_sender)
+        #     # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
+        #     # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
+        #     term = phi_sigma * torch.sum(
+        #         (pij.detach() - pij_counterfactual.detach())
+        #         * Gj_table.detach(), dim=1)
+        #
+        #     constraint_left = torch.mean(term)
+        #     if constraint_left < self.config.sender.sender_constraint_right:
+        #         gradeta_constraint_term = torch.autograd.grad(constraint_left, list(self.signaling_net.parameters()),
+        #                                                        retain_graph=True)
+        #         gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term)
+        #
+        #         if self.config.sender.sender_objective_alpha >= 1:
+        #             gradeta_flatten = gradeta_flatten / self.config.sender.sender_objective_alpha + gradeta_constraint_flatten
+        #         elif 0 <= self.config.sender.sender_objective_alpha < 1:
+        #             gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
+        #         else:
+        #             # raise IOError
+        #             pass
 
         # reform to be in original shape
         gradeta_flatten = gradeta_flatten.squeeze()
