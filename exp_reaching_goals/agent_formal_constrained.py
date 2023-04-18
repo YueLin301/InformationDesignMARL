@@ -187,57 +187,75 @@ class sender_class(object):
         gradeta_flatten = flatten_layers(gradeta)
 
         ''' BCE Obedience Constraint (Dual Gradient Descent) '''
-        # T: buffer length, the amount of time-steps (s_t, oj_t)
-        # M: the amount of signals
-        # N: the amount of actions
-        _, phi_sigma_st = self.send_message(obs_sender)  # (T,M)
+        if not self.config.env.aligned_object:
+            # T: buffer length, the amount of time-steps (s_t, oj_t)
+            # M: the amount of signals
+            # N: the amount of actions
+            ##########
 
-        # ojt_sigma_table = torch.cat([obs_sender[:, 0:1, :, :], message], dim=1)
-        ojt = obs_sender[:, 0:1, :, :]  # [ojt_0, message_0], [ojt_0, message_1], [ojt_0, message_2]
-        ojt_repeat = ojt.unsqueeze(dim=1).expand(-1, self.message_num, -1, -1, -1)
-        message_table = self.message_table_onehot.unsqueeze(dim=1).unsqueeze(dim=0).expand(ojt.shape[0], -1, -1, -1, -1)
-        ojt_message_talbe = torch.cat([ojt_repeat, message_table], dim=2)
+            _, phi_sigma_st_raw = self.send_message(obs_sender.detach())  # (T,M)
+            phi_sigma_st = phi_sigma_st_raw.reshape(phi_sigma_st_raw.shape[0] * phi_sigma_st_raw.shape[1])  # (T*M)
 
-        shape_temp = [ojt.shape[0] * self.message_num] + list(ojt_message_talbe.shape[2:])
-        ojt_message_reshape = ojt_message_talbe.reshape(shape_temp)  # (T*M)
+            ##########
 
-        _, pi_a_sigma_table = self.receiver.choose_action(ojt_message_reshape)  # (T*M,N)
+            ojt = obs_sender[:, 0:1, :, :]  # (T,XYY)
+            ojt_repeat = ojt.unsqueeze(dim=1).expand(-1, self.message_num, -1, -1, -1)  # (T,M,X,YY)
 
-        #######
-        sigma_cf_table = torch.rand_like(self.message_table_onehot)
-        pi_a_sigmacf_table = self.hr.actor(sigma_cf_table)  # (M,N)
+            message_table = self.message_table_onehot.unsqueeze(dim=1).unsqueeze(dim=0).expand(ojt.shape[0], -1, -1, -1,
+                                                                                               -1).detach()  # (T,M,1,YY)
+            ojt_message_talbe = torch.cat([ojt_repeat, message_table], dim=2)  # (T,M,X+1,YY)
+            shape_temp = [ojt.shape[0] * self.message_num] + list(ojt_message_talbe.shape[2:])  # T*M,X+1,YY
+            ojt_message_reshape = ojt_message_talbe.reshape(shape_temp)  # (T*M,X+1,YY)
 
-        pi_a_sigma_delta = pi_a_sigma_table - pi_a_sigmacf_table
-        Pr_st_sigma_a = torch.einsum('ij, jk -> ijk', phi_sigma_st, pi_a_sigma_delta.detach())  # (T,M,N)
+            _, pi_a_sigma_table = self.receiver.choose_action(ojt_message_reshape)  # (T*M,N)
 
-        # reshape
-        TMN = Pr_st_sigma_a.shape
-        Pr_sigma_st_a_delta = torch.transpose(Pr_st_sigma_a, 0, 1) \
-            .reshape(TMN[1], TMN[0] * TMN[2])  # (T,M,N) -> (M,T,N) -> (M,T*N)
+            ##########
 
-        # (s,a) onehot -> critic -> w^j(s,a)
-        sa_raw = torch.cartesian_prod(obs, self.aj_table_int)
-        sa_s_onehot = int_to_onehot(sa_raw[:, 0], k=2)
-        sa_a_onehot = int_to_onehot(sa_raw[:, 1], k=2)
-        sa_onehot = torch.cat([sa_s_onehot, sa_a_onehot], dim=1)
+            # sigma' (1,YY)
+            ojt_message_cf_table = torch.randint(self.message_num, (ojt.shape[0] * self.message_num,),
+                                                 device=self.device)
+            # (T,M,Q,YY)
+            ojt_message_cf_table_onehot = torch.nn.functional.one_hot(ojt_message_cf_table).view(ojt.shape[0],
+                                                                                                 self.message_num,
+                                                                                                 1,
+                                                                                                 self.config.env.map_height,
+                                                                                                 self.config.env.map_width)
+            ojt_message_cf_talbe = torch.cat([ojt_repeat, ojt_message_cf_table_onehot], dim=2)  # (T,M,X+1,YY)
+            ojt_message_cf_talbe_reshape = ojt_message_cf_talbe.reshape(shape_temp)  # (T*M,N)
 
-        wj_st_a = self.critic_forhr(sa_onehot).squeeze()  # (T*N)
+            _, pi_a_sigma_cf_table = self.receiver.choose_action(ojt_message_cf_talbe_reshape)  # (T*M,N)
 
-        C_sigma_table = torch.einsum('ij,j->i', Pr_sigma_st_a_delta, wj_st_a.detach()) / TMN[0]
-        # lambda_table = self.lambda_net(self.message_table_onehot).squeeze()
-        # lambda_C = torch.sum(lambda_table.detach() * C_sigma_table)
-        lambda_C = torch.sum(self.lambda_table * C_sigma_table)
+            ##########
 
-        gradeta_lambda_C = torch.autograd.grad(lambda_C, list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_lambda_C_flatten = flatten_layers(gradeta_lambda_C, 0)
-        gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_lambda_C_flatten
+            pi_a_sigma_delta = pi_a_sigma_table - pi_a_sigma_cf_table  # (T*M,N)
+            Pr_st_sigma_a_delta = torch.einsum('i, ij -> ij', phi_sigma_st, pi_a_sigma_delta.detach())  # (T*M,N)
+            Pr_st_sigma_a_delta_reshape = Pr_st_sigma_a_delta.reshape(ojt.shape[0], self.message_num,
+                                                                      Pr_st_sigma_a_delta.shape[-1])  # (T,M,N)
 
-        ## lambda update
-        lambda_table_temp = self.lambda_table - self.sender_objective_alpha \
-                            * (C_sigma_table - self.config.pro.constraint_right)
-        flag = lambda_table_temp > 0
-        flag = flag.type(torch.double)
-        self.lambda_table = lambda_table_temp * flag
+            # (s) -> critic -> w^j(s,a)
+            wj_table = self.critic_Gj(obs_sender)  # (T,N)
+            # (T*M,N) -> (T,M,N)
+            wj_table_repeat = wj_table.repeat(self.message_num, 1).reshape(ojt.shape[0], self.message_num,
+                                                                           Pr_st_sigma_a_delta.shape[-1])
+
+            # (T,M,N) -> (M)
+            C_sigma_table = torch.einsum('ijk,ijk->j', Pr_st_sigma_a_delta_reshape, wj_table_repeat.detach()) \
+                            / ojt.shape[0]
+
+            ##########
+
+            lambda_C = torch.sum(self.lambda_table.detach() * C_sigma_table)
+
+            gradeta_lambda_C = torch.autograd.grad(lambda_C, list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_lambda_C_flatten = flatten_layers(gradeta_lambda_C, 0)
+            gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_lambda_C_flatten
+
+            ## lambda update
+            lambda_table_temp = self.lambda_table - self.config.sender.sender_objective_alpha \
+                                * (C_sigma_table - self.config.sender.sender_constraint_right)
+            flag = lambda_table_temp > 0
+            flag = flag.type(torch.double)
+            self.lambda_table = lambda_table_temp * flag
 
         # if not self.config.env.aligned_object:
         #     batch_len = aj.shape[0]

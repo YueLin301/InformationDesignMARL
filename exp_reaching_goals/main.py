@@ -27,12 +27,12 @@ def main(config, seeds, device_name, using_wandb):
 
 
 if __name__ == '__main__':
-    device_name = "cpu"
-    # device_name = input("device_name:")
+    # device_name = "cpu"
+    device_name = input("device_name:")
 
-    seeds = [0]
-    # seeds_raw = input("input seeds:").split(' ')
-    # seeds = [int(i) for i in seeds_raw]
+    # seeds = [0]
+    seeds_raw = input("input seeds:").split(' ')
+    seeds = [int(i) for i in seeds_raw]
 
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish import config
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish_SG import config
