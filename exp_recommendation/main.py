@@ -83,24 +83,15 @@ if __name__ == '__main__':
 
     ############################################################
 
-    # from exp_recommendation.configs.exp6_final_lambda0 import config
-    # from exp_recommendation.configs.exp6_final_lambda2_25 import config
-
-    # main(config, seeds=seeds, pro_type='regularized', device_name=device_name)
-    # main(config, seeds=seeds, pro_type='regularized', using_wandb=True, group_name="recommendation_exp6_lambda="+str(config.pro.sender_objective_alpha), device_name=device_name)
-
-    ############################################################
-
-    from exp_recommendation.formal_config import config
+    from exp_recommendation.configs.formal_config import config
 
     main(config, seeds=seeds, pro_type='formal_constrained', device_name=device_name)
     # main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
     #      group_name="recom_lam=" + str(config.pro.sender_objective_alpha) + "_eps=" + str(config.pro.constraint_right), device_name=device_name)
-    # recom_lam=5_eps=0.3
 
     ############################################################
 
-    # from exp_recommendation.formal_config import config
+    # from exp_recommendation.configs.formal_config import config
     #
     # # lam_list = [2.5 * i for i in range(0, 5)]
     # # lam_list = [2.5 * i + 1.25 for i in range(0, 4)]
@@ -118,7 +109,7 @@ if __name__ == '__main__':
     #         config.pro.sender_objective_alpha = lam_list[j]
     #         main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
     #              group_name="recom_lam=" + str(config.pro.sender_objective_alpha) + "_eps=" + str(
-    #                  config.pro.constraint_right))
+    #                  config.pro.constraint_right), device_name=device_name)
     #
     # print('----------------------------------------')
     # print('All done.')

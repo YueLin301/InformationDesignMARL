@@ -1,5 +1,5 @@
 from env import recommendation
-from exp_recommendation.agent_class import pro_class, hr_class
+from exp_recommendation.agent_class import hr_class
 from exp_recommendation.agent_formal_constrained import pro_formal_constrained
 # from exp_recommendation.agent_class import hr_class
 from exp_recommendation.agent_baseline import pro_baseline_class
