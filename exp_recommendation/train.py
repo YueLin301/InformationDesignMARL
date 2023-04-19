@@ -9,21 +9,21 @@ from exp_recommendation.rec_utils import init_wandb, plot_with_wandb
 from tqdm import tqdm
 
 
-def set_Env_and_Agents(config, pro_type='regularized'):
+def set_Env_and_Agents(config, pro_type='regularized', device=None):
     assert pro_type in ['baseline', 'formal_constrained', 'regularized']
     baseline = True if pro_type == 'baseline' else False
 
     print('----------------------------------------')
     print('Setting agents and env.')
 
-    env = recommendation.recommendation_env(config.env)
+    env = recommendation.recommendation_env(config.env, device)
     if pro_type == 'regularized':
-        pro = pro_class(config)
+        pro = pro_class(config, device)
     elif pro_type == 'baseline':
-        pro = pro_baseline_class(config)
+        pro = pro_baseline_class(config, device)
     else:
-        pro = pro_formal_constrained(config)
-    hr = hr_class(config)
+        pro = pro_formal_constrained(config, device)
+    hr = hr_class(config, device)
 
     pro.build_connection(hr)
     hr.build_connection(pro)
@@ -31,7 +31,8 @@ def set_Env_and_Agents(config, pro_type='regularized'):
     return env, pro, hr
 
 
-def train(config, env, pro, hr, using_wandb=False, group_name=None, seed=None, pro_type='formal_constrained'):
+def train(config, env, pro, hr, using_wandb=False, group_name=None, seed=None, pro_type='formal_constrained',
+          device=None):
     print('----------------------------------------')
 
     if using_wandb:

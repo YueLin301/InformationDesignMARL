@@ -3,25 +3,26 @@ from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_
 
 
 class pro_class():
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.name = 'pro'
         self.config = config
+        self.device = device
 
         # G^i(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+        ).to(device)
         # G^j(s,a), rather than Q(sigma,a)
         self.critic_forhr = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+        ).to(device)
         self.signaling_net = torch.nn.Sequential(
             # input: one hot; output: signaling 0/1 prob. distribution
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float32),
             torch.nn.Softmax(dim=-1)
-        )
+        ).to(device)
 
         if config.pro.initialize:
             set_net_params(self.signaling_net, params=config.pro.signaling_params)
@@ -33,16 +34,16 @@ class pro_class():
 
         self.temperature = 1
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
-        self.message_table = torch.tensor([0, 1], dtype=torch.double)
+        self.message_table = torch.tensor([0, 1], dtype=torch.float32, device=self.device)
 
     def build_connection(self, hr):
         self.hr = hr
 
     def update_c(self, buffer):
         obs = buffer.obs_pro
-        obs_onehot = int_to_onehot(obs, k=2)
+        obs_onehot = int_to_onehot(obs, k=2, device=self.device)
         a_int_hr = buffer.a_int_hr
-        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2, device=self.device)
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
 
         r = buffer.reward_pro  # reward_pro
@@ -77,7 +78,7 @@ class pro_class():
         return
 
     def gumbel_sample(self, dim=2):
-        u = torch.rand(dim, dtype=torch.double)
+        u = torch.rand(dim, dtype=torch.float32)
         g = - torch.log(-torch.log(u))
         return g
 
@@ -90,7 +91,7 @@ class pro_class():
     def send_message(self, obs_list):
         obs_list = [obs_list] if isinstance(obs_list, int) else obs_list
         if not self.config.pro.fixed_signaling_scheme:
-            obs_onehot = int_to_onehot(obs_list, k=2)
+            obs_onehot = int_to_onehot(obs_list, k=2, device=self.device)
             phi_current = self.signaling_net(obs_onehot)
         else:
             phi_current = self.config.pro.signaling_scheme[obs_list]
@@ -111,7 +112,7 @@ class pro_class():
 
     def update_infor_design(self, buffer):
         obs = buffer.obs_pro
-        obs_onehot = int_to_onehot(obs, k=2)
+        obs_onehot = int_to_onehot(obs, k=2, device=self.device)
         a = buffer.a_int_hr
         sigma = buffer.message_pro
         sigma_int = torch.round(sigma).long()
@@ -120,7 +121,7 @@ class pro_class():
 
         ''' SG (Signaling Gradient) '''
         a_int_hr = buffer.a_int_hr
-        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2, device=self.device)
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
         G = self.critic(obs_and_a_onehot).squeeze()
 
@@ -147,8 +148,8 @@ class pro_class():
         sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
         _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
 
-        a1 = torch.tensor([1, 0], dtype=torch.double).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
-        a2 = torch.tensor([0, 1], dtype=torch.double).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
+        a1 = torch.tensor([1, 0], dtype=torch.float32).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
+        a2 = torch.tensor([0, 1], dtype=torch.float32).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
         obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
         obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)
 
@@ -197,18 +198,19 @@ class pro_class():
 
 
 class hr_class():
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.name = 'hr'
         self.config = config
+        self.device = device
 
         self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+        ).to(device)
         self.actor = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float32),
             torch.nn.Softmax(dim=-1)
-        )
+        ).to(device)
 
         if config.hr.initialize:
             # set_net_params(self.critic, params=config.hr.critic_params)
@@ -232,14 +234,14 @@ class hr_class():
         n_samples = message.shape[0] if len(message.shape) > 1 else 1
         for a_idx in range(2):
             pi_a_i = pi[range(len(pi)), a_idx].detach()
-            a_onehot = int_to_onehot([a_idx] * n_samples, k=2)
+            a_onehot = int_to_onehot([a_idx] * n_samples, k=2, device=self.device)
             message_and_a_i = torch.cat([message, a_onehot], dim=1)
             q_i = self.critic(message_and_a_i).squeeze(dim=1)
             v = v + pi_a_i * q_i
         return v
 
     def update_ac(self, buffer):
-        a_onehot_hr = int_to_onehot(buffer.a_int_hr, k=2)
+        a_onehot_hr = int_to_onehot(buffer.a_int_hr, k=2, device=self.device)
         message_and_a = torch.cat([buffer.message_onehot_pro, a_onehot_hr], dim=1)
 
         q = self.critic(message_and_a).squeeze()
