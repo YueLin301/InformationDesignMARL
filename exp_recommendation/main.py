@@ -74,11 +74,10 @@ if __name__ == '__main__':
 
     ############################################################
 
-    from exp_recommendation.configs.exp6_final_baseline_0 import config
-
+    # from exp_recommendation.configs.exp6_final_baseline_0 import config
     # from exp_recommendation.configs.exp6_final_baseline_5 import config
 
-    main(config, seeds=seeds, pro_type='baseline', device_name=device_name)
+    # main(config, seeds=seeds, pro_type='baseline', device_name=device_name)
     # main(config, seeds=seeds, pro_type='baseline', using_wandb=True,
     #      group_name="recom_baseline_" + str(config.pro.sender_objective_alpha), device_name=device_name)
 
@@ -92,9 +91,9 @@ if __name__ == '__main__':
 
     ############################################################
 
-    # from exp_recommendation.formal_config import config
+    from exp_recommendation.formal_config import config
 
-    # main(config, seeds=seeds, pro_type='formal_constrained', device_name=device_name)
+    main(config, seeds=seeds, pro_type='formal_constrained', device_name=device_name)
     # main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
     #      group_name="recom_lam=" + str(config.pro.sender_objective_alpha) + "_eps=" + str(config.pro.constraint_right), device_name=device_name)
     # recom_lam=5_eps=0.3

@@ -148,8 +148,8 @@ class pro_formal_constrained():
         sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
         _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
 
-        a1 = torch.tensor([1, 0], dtype=torch.float32).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
-        a2 = torch.tensor([0, 1], dtype=torch.float32).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
+        a1 = torch.tensor([1, 0], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
+        a2 = torch.tensor([0, 1], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
         obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
         obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)
 
