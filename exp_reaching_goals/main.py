@@ -62,4 +62,5 @@ if __name__ == '__main__':
 
     from exp_reaching_goals.configs_formal.RG_map3_DGD import config
 
-    main(config, seeds, device_name, using_wandb=False)
+    # main(config, seeds, device_name, using_wandb=False)
+    main(config, seeds, device_name, using_wandb=True)

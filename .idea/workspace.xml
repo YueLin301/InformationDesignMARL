@@ -2,11 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="07f24bc3-abd8-4c93-99b0-d55ebe0ca676" name="Changes" comment="quick commit">
-      <change afterPath="$PROJECT_DIR$/unit_test/DGD_backup.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/InformationDesignMARL.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/InformationDesignMARL.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/exp_reaching_goals/agent_formal_constrained.py" beforeDir="false" afterPath="$PROJECT_DIR$/exp_reaching_goals/agent_formal_constrained.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/env/recommendation.py" beforeDir="false" afterPath="$PROJECT_DIR$/env/recommendation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/exp_reaching_goals/configs_formal/RG_map3_DGD.py" beforeDir="false" afterPath="$PROJECT_DIR$/exp_reaching_goals/configs_formal/RG_map3_DGD.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/exp_reaching_goals/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/exp_reaching_goals/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -335,6 +335,11 @@
       <workItem from="1681715212659" duration="14846000" />
       <workItem from="1681795992669" duration="11200000" />
       <workItem from="1681847051850" duration="62000" />
+      <workItem from="1681847121514" duration="4100000" />
+      <workItem from="1681888946177" duration="157000" />
+      <workItem from="1681889665186" duration="75000" />
+      <workItem from="1681889749231" duration="206000" />
+      <workItem from="1681889963355" duration="8148000" />
     </task>
     <task id="LOCAL-00001" summary="refactor">
       <created>1668931216345</created>
@@ -665,7 +670,14 @@
       <option name="project" value="LOCAL" />
       <updated>1681743925215</updated>
     </task>
-    <option name="localTasksCounter" value="48" />
+    <task id="LOCAL-00048" summary="quick commit">
+      <created>1681847418507</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1681847418507</updated>
+    </task>
+    <option name="localTasksCounter" value="49" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -1025,7 +1037,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file:///opt/anaconda3/envs/rlbasic/lib/python3.8/site-packages/torch/autograd/__init__.py</url>
-          <line>172</line>
+          <line>200</line>
           <option name="timeStamp" value="975" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

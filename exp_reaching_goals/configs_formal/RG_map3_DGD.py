@@ -4,7 +4,7 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'RG_map3_gam01_lam0005_eps0'
+config.main.exp_name = 'RG_map3_DGD'
 
 # ==================================================
 config.env = ConfigDict()
