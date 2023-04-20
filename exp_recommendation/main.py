@@ -65,7 +65,8 @@ def main(config, seeds, using_wandb=False, group_name=None, pro_type='regularize
 
 if __name__ == '__main__':
     # device_name = input("device_name:")
-    device_name = 'cuda:0'
+    # device_name = 'cuda:0'
+    device_name = 'cpu'
 
     # seeds = [i for i in range(0, 10)]
     # seeds_raw = input("input seeds:").split(' ')
@@ -83,33 +84,33 @@ if __name__ == '__main__':
 
     ############################################################
 
-    # from exp_recommendation.configs.formal_config import config
+    from exp_recommendation.configs.formal_config import config
 
-    # main(config, seeds=seeds, pro_type='formal_constrained', device_name=device_name)
+    main(config, seeds=seeds, pro_type='formal_constrained', device_name=device_name)
     # main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
     #      group_name="recom_new_lam=" + str(config.pro.sender_objective_alpha)
     #                 + "_eps=" + str(config.pro.constraint_right), device_name=device_name)
 
     ############################################################
 
-    from exp_recommendation.configs.formal_config import config
-
-    wandb.login(key=wandb_login_key)
-
-    lam_list = [1.25 * i for i in range(0, 9)]  # [0, 10]
-    eps_list = [0.0625 * i for i in range(0, 9)]  # [0, 0.5]
-
-    last_finished_ij = [-1, -1]  # epsilon, lambda; for restart
-
-    for i in range(len(eps_list)):
-        for j in range(len(lam_list)):
-            if i <= last_finished_ij[0] and j <= last_finished_ij[1]:
-                continue
-            config.pro.constraint_right = eps_list[i]
-            config.pro.sender_objective_alpha = lam_list[j]
-            main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
-                 group_name="recom_new_lam=" + str(config.pro.sender_objective_alpha)
-                            + "_eps=" + str(config.pro.constraint_right), device_name=device_name)
-
-    print('----------------------------------------')
-    print('All done.')
+    # from exp_recommendation.configs.formal_config import config
+    #
+    # wandb.login(key=wandb_login_key)
+    #
+    # lam_list = [1.25 * i for i in range(0, 9)]  # [0, 10]
+    # eps_list = [0.0625 * i for i in range(0, 9)]  # [0, 0.5]
+    #
+    # last_finished_ij = [-1, -1]  # epsilon, lambda; for restart
+    #
+    # for i in range(len(eps_list)):
+    #     for j in range(len(lam_list)):
+    #         if i <= last_finished_ij[0] and j <= last_finished_ij[1]:
+    #             continue
+    #         config.pro.constraint_right = eps_list[i]
+    #         config.pro.sender_objective_alpha = lam_list[j]
+    #         main(config, seeds=seeds, pro_type='formal_constrained', using_wandb=True,
+    #              group_name="recom_new_lam=" + str(config.pro.sender_objective_alpha)
+    #                         + "_eps=" + str(config.pro.constraint_right), device_name=device_name)
+    #
+    # print('----------------------------------------')
+    # print('All done.')
