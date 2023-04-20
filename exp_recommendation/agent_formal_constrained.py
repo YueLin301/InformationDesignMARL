@@ -3,25 +3,26 @@ from exp_recommendation.rec_utils import set_net_params, int_to_onehot, flatten_
 
 
 class pro_formal_constrained():
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.name = 'pro'
         self.config = config
+        self.device = device
 
         # G^i(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+        ).to(device)
         # G^j(s,a), rather than Q(sigma,a)
         self.critic_forhr = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.double), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.double)
-        )
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+        ).to(device)
         self.signaling_net = torch.nn.Sequential(
             # input: one hot; output: signaling 0/1 prob. distribution
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.double),
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float32),
             torch.nn.Softmax(dim=-1)
-        )
+        ).to(device)
 
         if config.pro.initialize:
             set_net_params(self.signaling_net, params=config.pro.signaling_params)
@@ -33,7 +34,7 @@ class pro_formal_constrained():
 
         self.temperature = 1
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
-        self.message_table = torch.tensor([0, 1], dtype=torch.double)
+        self.message_table = torch.tensor([0, 1], dtype=torch.float32, device=self.device)
 
         self.sender_objective_alpha = self.config.pro.sender_objective_alpha
 
@@ -42,9 +43,9 @@ class pro_formal_constrained():
 
     def update_c(self, buffer):
         obs = buffer.obs_pro
-        obs_onehot = int_to_onehot(obs, k=2)
+        obs_onehot = int_to_onehot(obs, k=2, device=self.device)
         a_int_hr = buffer.a_int_hr
-        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2, device=self.device)
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
 
         r = buffer.reward_pro  # reward_pro
@@ -79,7 +80,7 @@ class pro_formal_constrained():
         return
 
     def gumbel_sample(self, dim=2):
-        u = torch.rand(dim, dtype=torch.double)
+        u = torch.rand(dim, dtype=torch.float32)
         g = - torch.log(-torch.log(u))
         return g
 
@@ -92,7 +93,7 @@ class pro_formal_constrained():
     def send_message(self, obs_list):
         obs_list = [obs_list] if isinstance(obs_list, int) else obs_list
         if not self.config.pro.fixed_signaling_scheme:
-            obs_onehot = int_to_onehot(obs_list, k=2)
+            obs_onehot = int_to_onehot(obs_list, k=2, device=self.device)
             phi_current = self.signaling_net(obs_onehot)
         else:
             phi_current = self.config.pro.signaling_scheme[obs_list]
@@ -113,7 +114,7 @@ class pro_formal_constrained():
 
     def update_infor_design(self, buffer):
         obs = buffer.obs_pro
-        obs_onehot = int_to_onehot(obs, k=2)
+        obs_onehot = int_to_onehot(obs, k=2, device=self.device)
         a = buffer.a_int_hr
         sigma = buffer.message_pro
         sigma_int = torch.round(sigma).long()
@@ -122,7 +123,7 @@ class pro_formal_constrained():
 
         ''' SG (Signaling Gradient) '''
         a_int_hr = buffer.a_int_hr
-        a_onehot_hr = int_to_onehot(a_int_hr, k=2)
+        a_onehot_hr = int_to_onehot(a_int_hr, k=2, device=self.device)
         obs_and_a_onehot = torch.cat([obs_onehot, a_onehot_hr], dim=1)
         G = self.critic(obs_and_a_onehot).squeeze()
 
@@ -149,8 +150,10 @@ class pro_formal_constrained():
         sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
         _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
 
-        a1 = torch.tensor([1, 0], dtype=torch.double).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
-        a2 = torch.tensor([0, 1], dtype=torch.double).unsqueeze(dim=0).repeat(self.config.env.sample_n_students, 1)
+        a1 = torch.tensor([1, 0], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(
+            self.config.env.sample_n_students, 1)
+        a2 = torch.tensor([0, 1], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(
+            self.config.env.sample_n_students, 1)
         obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
         obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)
 
@@ -158,16 +161,17 @@ class pro_formal_constrained():
         Gj_obs_and_a2 = self.critic_forhr(obs_and_a2)
         Gj_obs_and_a = torch.cat([Gj_obs_and_a1, Gj_obs_and_a2], dim=1)
 
-        constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
-        if constraint_left < self.config.pro.constraint_right:
-            constraint_term = torch.mean(
-                phi_sigma * torch.sum(
-                    (pi.detach() - pi_counterfactual.detach())
-                    * Gj_obs_and_a.detach(), dim=1))
-            gradeta_constraint_term = torch.autograd.grad(constraint_term,
-                                                          list(self.signaling_net.parameters()), retain_graph=True)
-            gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term, 0)
-            gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_constraint_flatten
+        # find out constraints that < 0
+        constraints_sampled_all = phi_sigma * torch.sum(
+            (pi.detach() - pi_counterfactual.detach()) * Gj_obs_and_a.detach(), dim=1)
+        not_satisfied_boolean = constraints_sampled_all < self.config.pro.constraint_right
+        not_satisfied_idx = not_satisfied_boolean.type(torch.float32)
+        constraints_sampled_not_satisfied = constraints_sampled_all * not_satisfied_idx
+
+        gradeta_constraint_term = torch.autograd.grad(torch.mean(constraints_sampled_not_satisfied),
+                                                      list(self.signaling_net.parameters()), retain_graph=True)
+        gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term, 0)
+        gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_constraint_flatten
 
         # reform to be in original shape
         gradeta = []
