@@ -43,6 +43,7 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
         if not seed is None:
             run_handle.tags = run_handle.tags + (str(seed),)
 
+    record_length = 100
     i_episode = 0
     i_save_flag = 0
     buffer = buffer_class()
@@ -53,8 +54,8 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
             i_save_flag += 1
 
         batch = buffer.sample_a_batch(batch_size=buffer.data_size)
-        if using_wandb:
-            plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
+        if using_wandb and not (i_episode % record_length):
+            plot_with_wandb(chart_name_list, batch, i_episode, sender_honest=config.sender.honest)
         update_vars_receiver = receiver.calculate_for_updating(batch)
         receiver.update(*update_vars_receiver)
         buffer.reset()
@@ -64,8 +65,8 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
                 run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
                 i_episode += 1
             batch = buffer.sample_a_batch(batch_size=buffer.data_size)
-            if using_wandb:
-                plot_with_wandb(chart_name_list, batch, sender_honest=config.sender.honest)
+            if using_wandb and not (i_episode % record_length):
+                plot_with_wandb(chart_name_list, batch, i_episode, sender_honest=config.sender.honest)
             update_vars_sender = sender.calculate_for_updating(batch)
             sender.update(*update_vars_sender)
             buffer.reset()
@@ -84,15 +85,15 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
     return
 
 
-if __name__ == '__main__':
-    import torch
-    from exp_harvest.configs.exp0_test import config
-
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device('cpu')
-    print(device)
-    env, sender, receiver = set_Env_and_Agents(config, device)
-
-    train(env, sender, receiver, config, device)
-
-    print('all done.')
+# if __name__ == '__main__':
+#     import torch
+#     from exp_harvest.configs.exp0_test import config
+#
+#     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+#     # device = torch.device('cpu')
+#     print(device)
+#     env, sender, receiver = set_Env_and_Agents(config, device)
+#
+#     train(env, sender, receiver, config, device)
+#
+#     print('all done.')

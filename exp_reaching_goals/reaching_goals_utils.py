@@ -11,7 +11,7 @@ def init_wandb(config):
                             group=config.main.exp_name,
                             config={"sender_objective_alpha": config.sender.sender_objective_alpha,
                                     "map": config.env.map_height,
-                                    "receiver_gamma":config.receiver.gamma})
+                                    "receiver_gamma": config.receiver.gamma})
 
     if not config.sender.honest:
         chart_name_list = ['reward_sender',
@@ -55,7 +55,7 @@ def obs_list_totorch(obs_listofnp, device):
     return obs_listoftorch
 
 
-def plot_with_wandb(chart_name_list, batch, sender_honest):
+def plot_with_wandb(chart_name_list, batch, i_episode, sender_honest):
     entry = dict(zip(chart_name_list, [0] * len(chart_name_list)))
 
     rj = batch.data[batch.name_dict['rj']]
@@ -69,7 +69,7 @@ def plot_with_wandb(chart_name_list, batch, sender_honest):
         entry['social_welfare'] = r_tot_sum
 
     entry['reward_receiver'] = rj_sum
-    wandb.log(entry)
+    wandb.log(entry, step=i_episode//2)
 
     return
 

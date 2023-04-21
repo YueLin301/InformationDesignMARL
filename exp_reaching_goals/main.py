@@ -28,6 +28,7 @@ def main(config, seeds, device_name):
 
 if __name__ == '__main__':
     device_name = input("device_name:")
+    # device_name = 'cpu'
 
     # seeds = [i for i in range(0, 1)]
     seeds_raw = input("input seeds:").split(' ')
@@ -36,13 +37,11 @@ if __name__ == '__main__':
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish import config
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish_SG import config
 
-    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0 import config
-    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_PG import config
-    from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_noinfo import config
-
-    # from exp_reaching_goals.configs_formal.RG_map5_no_punish_test1 import config
-    # from exp_reaching_goals.configs_formal.RG_map5_no_punish_test2 import config
-    # from exp_reaching_goals.configs_formal.RG_map5_no_punish_test3 import config
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_noinfo import config # noinfo
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_PG import config # PG
+    from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_PG import config  # PGOC
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0 import config # SG
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # SGOC
 
     # config_id = input("which config:")
     # if config_id == '0':

@@ -152,13 +152,14 @@ def plot_with_wandb(chart_name_list, batch, i_episode, env_sample_n_students):
 if __name__ == '__main__':
     myseeds = [i for i in range(10)]
 
-    from DIAL_modified.config import config
+    from DIAL_modified.config_rec import config
     from env import recommendation
     import wandb
     from exp_recommendation.mykey import wandb_login_key
     from exp_recommendation.rec_utils import set_seed
 
     wandb.login(key=wandb_login_key)
+    device = torch.device('cpu')
     for seed in myseeds:
         set_seed(seed)
 
@@ -166,6 +167,6 @@ if __name__ == '__main__':
         hr = hr_DIAL(config)
         pro.build_connection(hr)
         hr.build_connection(pro)
-        env = recommendation.recommendation_env(config.env)
+        env = recommendation.recommendation_env(config.env, device)
 
         train(config, env, pro, hr, group_name="DIAL_test1", seed=seed)
