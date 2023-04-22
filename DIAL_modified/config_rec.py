@@ -1,4 +1,3 @@
-import torch
 from utils.configdict import ConfigDict
 from exp_recommendation.configs.env_config import config_env
 
@@ -9,7 +8,6 @@ config.env = config_env
 # ========================================
 '''pro'''
 config.pro = ConfigDict()
-config.pro.lr_critic = 2e-3
 config.pro.sender_objective_alpha = None
 # ========================================
 '''hr'''
