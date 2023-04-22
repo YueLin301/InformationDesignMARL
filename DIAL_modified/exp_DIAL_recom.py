@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append('../')
+
 import torch
 from torch.nn.utils import clip_grad_norm_
 from DIAL_origin.agent import DRU

@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append('../')
+
 from DIAL_origin.agent import DRU
 import torch
 from torch.nn.utils import clip_grad_norm_
@@ -23,7 +27,7 @@ class sender_DIAL():
         self.critic = critic(config.n_channels.obs_sender, dim_message, config, belongto=name, name='critic',
                              device=device)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.sender.lr_critic)
-        self.dru = DRU(sigma=2)
+        self.dru = DRU(sigma=2,device=device)
 
     def build_connection(self, receiver):
         self.receiver = receiver
@@ -137,6 +141,7 @@ if __name__ == '__main__':
     from exp_reaching_goals.reaching_goals_utils import set_seed
 
     device_name = input("device_name:")
+    # device_name = 'cuda:0'
     device = torch.device(device_name)
 
     seeds_raw = input("input seeds:").split(' ')
