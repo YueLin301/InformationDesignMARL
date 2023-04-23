@@ -1,12 +1,19 @@
 import sys
+import os
+from pathlib import Path
 
-sys.path.append('../')
+# sys.path.append('../')
+
+cwd = Path(os.getcwd())
+sys.path.append(str(cwd.parent))
+
+# from pprint import pprint
+# pprint(sys.path)
 
 from DIAL_origin.agent import DRU
 import torch
 from torch.nn.utils import clip_grad_norm_
 
-from exp_reaching_goals.reaching_goals_utils import init_wandb
 from exp_reaching_goals.network import critic
 
 from exp_reaching_goals.reaching_goals_utils import plot_with_wandb, init_wandb
@@ -27,7 +34,7 @@ class sender_DIAL():
         self.critic = critic(config.n_channels.obs_sender, dim_message, config, belongto=name, name='critic',
                              device=device)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.sender.lr_critic)
-        self.dru = DRU(sigma=2,device=device)
+        self.dru = DRU(sigma=2, device=device)
 
     def build_connection(self, receiver):
         self.receiver = receiver
