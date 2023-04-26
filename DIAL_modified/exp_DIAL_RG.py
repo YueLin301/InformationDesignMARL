@@ -56,7 +56,7 @@ class sender_DIAL():
         self.critic = critic(config.n_channels.obs_sender, dim_message, config, belongto=name,
                              name='critic', device=device)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config.sender.lr_critic)
-        self.dru = DRU_RG(sigma=2, device=device)
+        self.dru = DRU_RG(sigma=0.1, device=device)
 
     def build_connection(self, receiver):
         self.receiver = receiver
@@ -109,8 +109,8 @@ class receiver_DIAL():
         return a, q_table
 
     def update_for_all(self, batch):
-        rj_raw = batch.data[batch.name_dict['rj']]
-        rj = rj_raw[0]
+        rj = batch.data[batch.name_dict['rj']]
+        # rj = rj_raw[0]
 
         obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
         q_table = self.critic(obs_and_message_receiver)
