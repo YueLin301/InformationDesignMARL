@@ -17,8 +17,8 @@ config.pro.lr_signal = 1e-3
 
 config.pro.coe_for_recovery_fromgumbel = 2
 
-config.pro.constraint_right = 0
-config.pro.sender_objective_alpha = 10
+config.pro.constraint_right = 0.3
+config.pro.sender_objective_alpha = 5
 
 config.pro.initialize = False
 

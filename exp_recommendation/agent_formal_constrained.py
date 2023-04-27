@@ -161,17 +161,16 @@ class pro_formal_constrained():
         Gj_obs_and_a2 = self.critic_forhr(obs_and_a2)
         Gj_obs_and_a = torch.cat([Gj_obs_and_a1, Gj_obs_and_a2], dim=1)
 
-        # find out constraints that < 0
-        constraints_sampled_all = phi_sigma * torch.sum(
-            (pi.detach() - pi_counterfactual.detach()) * Gj_obs_and_a.detach(), dim=1)
-        not_satisfied_boolean = constraints_sampled_all < self.config.pro.constraint_right
-        not_satisfied_idx = not_satisfied_boolean.type(torch.float32)
-        constraints_sampled_not_satisfied = constraints_sampled_all * not_satisfied_idx
-
-        gradeta_constraint_term = torch.autograd.grad(torch.mean(constraints_sampled_not_satisfied),
-                                                      list(self.signaling_net.parameters()), retain_graph=True)
-        gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term, 0)
-        gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_constraint_flatten
+        constraint_left = torch.mean(phi_sigma * torch.sum((pi - pi_counterfactual) * Gj_obs_and_a, dim=1))
+        if constraint_left < self.config.pro.constraint_right:
+            constraint_term = torch.mean(
+                phi_sigma * torch.sum(
+                    (pi.detach() - pi_counterfactual.detach())
+                    * Gj_obs_and_a.detach(), dim=1))
+            gradeta_constraint_term = torch.autograd.grad(constraint_term,
+                                                          list(self.signaling_net.parameters()), retain_graph=True)
+            gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term, 0)
+            gradeta_flatten = gradeta_flatten + self.sender_objective_alpha * gradeta_constraint_flatten
 
         # reform to be in original shape
         gradeta = []

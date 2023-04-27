@@ -1,12 +1,5 @@
 import torch
 import os.path
-from agent_class import sender_class, receiver_class
-# from exp_reaching_goals.reaching_goals_utils import obs_list_totorch
-from exp_reaching_goals.buffer_class import buffer_class
-from exp_reaching_goals.configs.exp3a_aligned_map3 import config
-
-from env.reaching_goals import reaching_goals_env
-
 import imageio
 
 
@@ -77,37 +70,3 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
     if not sender is None and sender.epsilon > config.sender.epsilon_min:
         sender.epsilon = sender.epsilon * config.sender.epsilon_decay
     return
-
-
-if __name__ == '__main__':
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    print(device)
-    env = reaching_goals_env(config.env)
-    sender = sender_class(config=config, device=device)
-    receiver = receiver_class(config=config, device=device)
-
-    # run_an_episode(env, sender, receiver, config, device, pls_render=True)
-
-    # import time
-    # t0 = time.time()
-    # for i in range(int(1e3)):
-    #     buffer = run_an_episode(env, sender, receiver, config, device, pls_render=False)
-    # print(time.time() - t0)
-
-    buffer = buffer_class()
-    run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
-
-    assert torch.cat(buffer.data[buffer.name_dict['obs_sender']][1:]).equal(
-        torch.cat(buffer.data[buffer.name_dict['obs_sender_next']][:-1]))
-    assert buffer.data[buffer.name_dict['message']][1:] == buffer.data[buffer.name_dict['message_next']][:-1]
-    assert buffer.data[buffer.name_dict['obs_and_message_receiver']][1:] == buffer.data[buffer.name_dict[
-        'obs_and_message_receiver_next']][:-1]
-    ri = buffer.data[buffer.name_dict['ri']]
-    batch = buffer.sample_a_batch(33)
-    ri2 = batch.data[batch.name_dict['ri']]
-
-    phi = buffer.data[buffer.name_dict['phi']]
-
-    temp_grad = torch.autograd.grad(torch.sum(phi[0]), list(sender.signaling_net.parameters()), retain_graph=True)
-
-    print('all done.')

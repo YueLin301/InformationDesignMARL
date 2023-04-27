@@ -15,16 +15,17 @@ def weight_reset(m):
 
 
 class DRU:
-    def __init__(self, sigma, comm_narrow=True, hard=False):
+    def __init__(self, sigma, comm_narrow=True, hard=False, device=torch.device('cpu')):
         self.sigma = sigma
         self.comm_narrow = comm_narrow
         self.hard = hard
+        self.device = device
 
     def regularize(self, m):
         """
         Returns the regularized value of message `m` during training.
         """
-        m_reg = m + torch.randn(m.size()) * self.sigma
+        m_reg = m + torch.randn(m.size()).to(self.device) * self.sigma
         if self.comm_narrow:
             m_reg = torch.sigmoid(m_reg)
         else:
