@@ -27,8 +27,8 @@ def main(config, seeds, device_name, using_wandb=False):
 
 
 if __name__ == '__main__':
-    debug_flag = True
-    # debug_flag = False
+    # debug_flag = True
+    debug_flag = False
 
     if debug_flag:
         device_name = 'cpu'
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         seeds = [int(i) for i in seeds_raw]
         using_wandb = True
 
-    '''test'''
+    '''tests in previous version'''
     # from exp_reaching_goals.configs.exp3a_aligned_map3 import config
     # from exp_reaching_goals.configs.exp3b_aligned_map5_2 import config
     # from exp_reaching_goals.configs.exp8a_baseline_blind import config
@@ -49,14 +49,15 @@ if __name__ == '__main__':
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish import config
     # from exp_reaching_goals.configs_formal.RG_map3_no_punish_SG import config
 
-    ''' comparisons: noinfo, PG, PGOC, SGOC '''
-    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_noinfo import config # noinfo
+    ''' comparisons: PG, PGOC, SG, SGOC '''
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_PG import config # PG
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_PG import config  # PGOC
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0 import config # SG
-    from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # SGOC
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # SGOC
 
     '''control oj'''
-
+    # from exp_reaching_goals.configs_oj.RG_map3_SGOC_oj_00 import config  # message
+    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # j pos, message
+    from exp_reaching_goals.configs_oj.RG_map3_SGOC_oj_11 import config  # j pos, j apple pos, message
 
     main(config, seeds, device_name, using_wandb=using_wandb)

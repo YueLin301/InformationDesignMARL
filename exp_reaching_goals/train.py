@@ -60,7 +60,7 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
         receiver.update(*update_vars_receiver)
         buffer.reset()
 
-        if not config.sender.honest and not config.receiver.blind:
+        if not config.sender.honest:
             while buffer.data_size <= buffer.capacity:
                 run_an_episode(env, sender, receiver, config, device, pls_render=False, buffer=buffer)
                 i_episode += 1
@@ -83,7 +83,6 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
         run_handle.finish()
 
     return
-
 
 # if __name__ == '__main__':
 #     import torch

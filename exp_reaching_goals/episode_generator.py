@@ -13,14 +13,19 @@ def run_an_episode(env, sender, receiver, config, device, pls_render, buffer):
         obs_sender = state if not config.sender.regradless_agent_pos else state[:, 1:, :, :]
         if not config.sender.honest:
             message, phi = sender.send_message(obs_sender)
-            obs_and_message_receiver = torch.cat([state[:, 0:1, :, :], message], dim=1)
+            obs_range = config.receiver.obs_range
+            obs_and_message_receiver = message
+            if obs_range[1]:
+                obs_and_message_receiver = torch.cat([state[:, 2:3, :, :], obs_and_message_receiver], dim=1)
+            if obs_range[0]:
+                obs_and_message_receiver = torch.cat([state[:, 0:1, :, :], obs_and_message_receiver], dim=1)
         else:
             obs_and_message_receiver, message, phi = obs_sender, None, None
             if not config.env.aligned_object and config.n_channels.obs_and_message_receiver == 2:
                 obs_and_message_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
                                                       obs_and_message_receiver[:, 2:3, :, :]], dim=1)
-            if config.receiver.blind:
-                obs_and_message_receiver = torch.zeros_like(obs_and_message_receiver).to(device)
+            else:
+                raise NotImplementedError()
 
         if pls_render:
             filename = os.path.join(config.path.saved_episode, str(pic_step))
