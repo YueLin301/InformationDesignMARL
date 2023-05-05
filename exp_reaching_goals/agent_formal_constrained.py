@@ -45,7 +45,7 @@ class sender_class(object):
         # Gi(s,aj)
         self.critic_Gi = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gi',
                                 device=device)
-        # Gi(s,aj)
+        # Gj(s,aj)
         self.critic_Gj = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gj',
                                 device=device)
         # phi(sigma|s)
