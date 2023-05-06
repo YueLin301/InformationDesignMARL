@@ -27,8 +27,8 @@ def main(config, seeds, device_name, using_wandb=False):
 
 
 if __name__ == '__main__':
-    # debug_flag = True
-    debug_flag = False
+    debug_flag = True
+    # debug_flag = False
 
     if debug_flag:
         device_name = 'cpu'
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     # from exp_reaching_goals.configs_oj.RG_map3_SGOC_oj_11 import config  # j pos, j apple pos, message
 
     '''7x7 map'''
-    from exp_reaching_goals.configs_bigger_map.RG_map5_PGOC import config  # PGOC
-    # from exp_reaching_goals.configs_bigger_map.RG_map5_SGOC import config  # SGOC
+    # from exp_reaching_goals.configs_bigger_map.RG_map5_PGOC import config  # PGOC
+    from exp_reaching_goals.configs_bigger_map.RG_map5_SGOC import config  # SGOC
 
     main(config, seeds, device_name, using_wandb=using_wandb)
