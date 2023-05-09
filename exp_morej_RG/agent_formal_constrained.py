@@ -69,11 +69,11 @@ class sender_class(object):
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.sender.lr_signal)
 
         # target critics
-        self.target_critic_Gi = critic(config.n_channels.obs_sender + 1, 1, config, belongto=name,
-                                       name='target_critic_Gi', device=device)
+        self.target_critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
+                                                 name='target_critic_Gi', device=device)
         self.target_critic_Gi.load_state_dict(self.critic_Gi.state_dict())
-        self.target_critic_Gj = critic(config.n_channels.obs_sender + 1, 1, config, belongto=name,
-                                       name='target_critic_Gj', device=device)
+        self.target_critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
+                                                 name='target_critic_Gj', device=device)
         self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
         self.temperature = 1
@@ -210,15 +210,20 @@ class sender_class(object):
             pij_joint = torch.bmm(pij_joint.unsqueeze(dim=-1), pij_delta[:, j, :].unsqueeze(dim=1)).view(batch_size, -1)
         # pij_np = pij_joint.detach().numpy()
 
-        # a_joint_list =
+        a_table_size = self.a_joint_table.size()[0]
+        a_joint_table_repeat = self.a_joint_table.unsqueeze(dim=0).repeat(batch_size, 1, 1)
+        obs_sender_repeat = obs_sender.unsqueeze(dim=1).repeat(1, a_table_size, 1, 1, 1)
+        # size_common = a_joint_table_repeat.size()
+        # size_temp = []
+        a_joint_table_repeat_view = a_joint_table_repeat.view(batch_size * a_table_size, -1)
+        obs_sender_repeat_view = obs_sender_repeat.view(batch_size * a_table_size, 2 * nj + 1, height, width)
 
         # s, aj
-        Gj_table = self.critic_Gj(obs_sender)
+        Gj_table = self.critic_Gj.wrapped_forward(obs_sender_repeat_view, a_joint_table_repeat_view)
+        Gj_view = Gj_table.view(batch_size, a_table_size)
         # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
         # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
-        term = phi_sigma * torch.sum(
-            (pij.detach() - pij_counterfactual.detach())
-            * Gj_table.detach(), dim=1)
+        term = torch.prod(phi_sigma, dim=1) * torch.sum(pij_joint * Gj_view, dim=1)
 
         constraint_left = torch.mean(term)
         if constraint_left < self.config.sender.sender_constraint_right:

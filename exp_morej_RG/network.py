@@ -93,7 +93,7 @@ class critic_embedding(net_base):
         self.height = config.env.map_height
         self.width = config.env.map_width
         self.a_embedding = torch.nn.Linear(config.env.nj, self.height * self.width,  # output_dim
-                                           dtype=torch.double, device=device)
+                                           dtype=torch.double)
 
         # self.action_dim = config.env.dim_action
         self.output_layer = nn.Sequential(nn.Linear(config.nn.hidden_width, output_dims, dtype=torch.double))
