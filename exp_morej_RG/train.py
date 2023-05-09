@@ -45,7 +45,7 @@ def train(env, sender, receiver_list, config, device, using_wandb=False, seed=No
     buffer = buffer_class()
     while i_episode < config.train.n_episodes:
         while buffer.data_size <= buffer.capacity:
-            run_an_episode(env, sender, receiver_list, config, pls_render=False, buffer=buffer)
+            run_an_episode(env, sender, receiver_list, config, pls_render=False, buffer=buffer, device=device)
             i_episode += 1
             i_save_flag += 1
 
@@ -58,7 +58,7 @@ def train(env, sender, receiver_list, config, device, using_wandb=False, seed=No
         buffer.reset()
 
         while buffer.data_size <= buffer.capacity:
-            run_an_episode(env, sender, receiver_list, config, pls_render=False, buffer=buffer)
+            run_an_episode(env, sender, receiver_list, config, pls_render=False, buffer=buffer, device=device)
             i_episode += 1
         batch = buffer.sample_a_batch(batch_size=buffer.data_size)
         if using_wandb and not (i_episode % record_length):

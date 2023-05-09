@@ -18,8 +18,8 @@ def calculate_critic_loss(critic, target_critic, loss_criterion, r, input, a, in
 
 
 def sender_calculate_critic_loss(critic, target_critic, loss_criterion, r, input, aj, input_next, aj_next, gamma):
-    output = critic.wrapped_forward(input, aj)
-    target_output = target_critic.wrapped_forward(input_next, aj_next)
+    output = critic.wrapped_forward(input, aj).squeeze()
+    target_output = target_critic.wrapped_forward(input_next, aj_next).squeeze()
 
     td_target = r + gamma * target_output
     critic_loss = loss_criterion(td_target, output)
@@ -58,7 +58,7 @@ class sender_class(object):
         self.critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
                                           name='critic_Gi', device=device)
         # Gj(s,aj), all in one
-        self.critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
+        self.critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, self.nj, config, belongto=name,
                                           name='critic_Gj', device=device)
         # phi(sigma|s)
         self.signaling_net = signaling_net(config, device=device)
@@ -72,7 +72,7 @@ class sender_class(object):
         self.target_critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
                                                  name='target_critic_Gi', device=device)
         self.target_critic_Gi.load_state_dict(self.critic_Gi.state_dict())
-        self.target_critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
+        self.target_critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, self.nj, config, belongto=name,
                                                  name='target_critic_Gj', device=device)
         self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
@@ -220,24 +220,28 @@ class sender_class(object):
 
         # s, aj
         Gj_table = self.critic_Gj.wrapped_forward(obs_sender_repeat_view, a_joint_table_repeat_view)
-        Gj_view = Gj_table.view(batch_size, a_table_size)
+        Gj_view = Gj_table.view(batch_size, a_table_size, nj)
         # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
         # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
-        term = torch.prod(phi_sigma, dim=1) * torch.sum(pij_joint * Gj_view, dim=1)
+        term = torch.prod(phi_sigma, dim=1).unsqueeze(dim=-1).repeat(1, nj) \
+               * torch.sum(pij_joint.unsqueeze(dim=-1).repeat(1, 1, nj) * Gj_view, dim=1)
 
-        constraint_left = torch.mean(term)
-        if constraint_left < self.config.sender.sender_constraint_right:
-            gradeta_constraint_term = torch.autograd.grad(constraint_left, list(self.signaling_net.parameters()),
-                                                          retain_graph=True)
-            gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term)
+        constraint_left = torch.mean(term, dim=0)
+        flag = constraint_left < 0
+        mask = flag.to(int).to(self.device)
+        constraint_left_needgrad = torch.sum(constraint_left * mask)
 
-            if self.config.sender.sender_objective_alpha >= 1:
-                gradeta_flatten = gradeta_flatten / self.config.sender.sender_objective_alpha + gradeta_constraint_flatten
-            elif 0 <= self.config.sender.sender_objective_alpha < 1:
-                gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
-            else:
-                # raise IOError
-                pass
+        gradeta_constraint_term = torch.autograd.grad(constraint_left_needgrad, list(self.signaling_net.parameters()),
+                                                      retain_graph=True)
+        gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term)
+
+        if self.config.sender.sender_objective_alpha >= 1:
+            gradeta_flatten = gradeta_flatten / self.config.sender.sender_objective_alpha + gradeta_constraint_flatten
+        elif 0 <= self.config.sender.sender_objective_alpha < 1:
+            gradeta_flatten = gradeta_flatten + self.config.sender.sender_objective_alpha * gradeta_constraint_flatten
+        else:
+            # raise IOError
+            pass
 
         # reform to be in original shape
         gradeta_flatten = gradeta_flatten.squeeze()

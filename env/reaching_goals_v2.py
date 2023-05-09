@@ -116,7 +116,7 @@ class reaching_goals_env(object):
                        torch.cat([x2.unsqueeze(dim=-1), y2.unsqueeze(dim=-1)], dim=-1)
 
         distance_all = torch.cdist(pos1_, pos2_, p=2)
-        eye = torch.eye(self.nj)
+        eye = torch.eye(self.nj, device=self.device)
 
         return torch.sum(distance_all * eye, dim=0)
 

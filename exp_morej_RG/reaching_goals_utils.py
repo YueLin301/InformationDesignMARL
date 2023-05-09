@@ -34,7 +34,7 @@ def plot_with_wandb(chart_name_list, batch, i_episode):
     entry['reward_sender'] = ri_sum
 
     rj = batch.data[batch.name_dict['rj']]
-    rj_mean = float(torch.mean(rj))
+    rj_mean = float(torch.sum(torch.mean(rj, dim=1)))
     entry['reward_receiver_mean'] = rj_mean
 
     rj_each = torch.sum(rj, dim=0)

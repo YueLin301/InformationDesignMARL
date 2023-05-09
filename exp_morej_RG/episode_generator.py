@@ -3,7 +3,7 @@ import os.path
 import imageio
 
 
-def run_an_episode(env, sender, receiver_list, config, pls_render, buffer):
+def run_an_episode(env, sender, receiver_list, config, pls_render, buffer, device):
     done = False
     state = env.reset().to(torch.double)  # receiver position, sender apple position, receiver apple position
     step = 0
@@ -47,8 +47,8 @@ def run_an_episode(env, sender, receiver_list, config, pls_render, buffer):
             buffer.add_half_transition(half_transition, '1st')
         else:
             buffer.add_half_transition(half_transition, '1st')
-            half_transition_clone[-1] = torch.zeros(1, nj)
-            half_transition_clone[-2] = torch.zeros(1)
+            half_transition_clone[-1] = torch.zeros(1, nj, device=device)
+            half_transition_clone[-2] = torch.zeros(1, device=device)
             buffer.add_half_transition(half_transition_clone, '2nd')
         if step:  # the first transition
             buffer.add_half_transition(half_transition_clone, '2nd')

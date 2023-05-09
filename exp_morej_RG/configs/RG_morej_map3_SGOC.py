@@ -16,7 +16,7 @@ config.env.dim_action = 4
 config.env.reward_amplifier = 20
 config.env.punish_amplifier = 3.5
 
-config.env.nj = 3
+config.env.nj = 2
 
 # ==================================================
 config.train = ConfigDict()
@@ -51,8 +51,7 @@ config.receiver.lr_critic_Gj = 3e-4
 config.receiver.gamma = 0.1
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
-# config.receiver.obs_range = [1, 0]  # oj: receiver position, receiver's apple position
-config.receiver.obs_range = [1, 1]  # oj: receiver position, receiver's apple position
+config.receiver.obs_range = [1, 0]  # oj: receiver position, receiver's apple position
 
 # ==================================================
 config.n_channels = ConfigDict()
