@@ -54,11 +54,11 @@ class sender_class(object):
 
         self.nj = config.env.nj
 
-        # Gi(s,a joint)
-        self.critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, self.nj, 1, config, belongto=name,
+        # Gi(s,aj)
+        self.critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
                                           name='critic_Gi', device=device)
-        # Gj(sj,aj), shared data (receivers are homo and independent in RG)
-        self.critic_Gj = critic_embedding(2 + 1, 1, 1, config, belongto=name,
+        # Gj(s,aj), all in one
+        self.critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, self.nj, config, belongto=name,
                                           name='critic_Gj', device=device)
         # phi(sigma|s)
         self.signaling_net = signaling_net(config, device=device)
@@ -69,10 +69,10 @@ class sender_class(object):
         self.signaling_optimizer = torch.optim.Adam(self.signaling_net.parameters(), config.sender.lr_signal)
 
         # target critics
-        self.target_critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, self.nj, 1, config, belongto=name,
+        self.target_critic_Gi = critic_embedding(config.n_channels.obs_sender + 1, 1, config, belongto=name,
                                                  name='target_critic_Gi', device=device)
         self.target_critic_Gi.load_state_dict(self.critic_Gi.state_dict())
-        self.target_critic_Gj = critic_embedding(2 + 1, 1, 1, config, belongto=name,
+        self.target_critic_Gj = critic_embedding(config.n_channels.obs_sender + 1, self.nj, config, belongto=name,
                                                  name='target_critic_Gj', device=device)
         self.target_critic_Gj.load_state_dict(self.critic_Gj.state_dict())
 
@@ -81,9 +81,6 @@ class sender_class(object):
         import itertools
         action_list = [[a for a in range(dim_action)] for _ in range(self.nj)]
         self.a_joint_table = torch.tensor(tuple(itertools.product(*action_list)), dtype=torch.double, device=device)
-
-        # self.sj_idx = [[j, self.nj + j] for j in range(1, self.nj + 1)]
-        # print('haha')
 
     def build_connection(self, receiver_list):
         self.receiver_list = receiver_list
@@ -100,23 +97,9 @@ class sender_class(object):
                                                       ri, input=obs_sender, aj=aj, input_next=obs_sender_next,
                                                       aj_next=aj_next, gamma=self.config.sender.gamma)
 
-        # critic_loss_Gj = sender_calculate_critic_loss(self.critic_Gj, self.target_critic_Gj, self.critic_loss_criterion,
-        #                                               rj, input=obs_sender, aj=aj, input_next=obs_sender_next,
-        #                                               aj_next=aj_next, gamma=self.config.sender.gamma)
-
-        # shared data (receivers are homo and independent in RG)
-        batch_size, _, height, width = obs_sender.size()
-        # obs_sender_np = obs_sender.detach().numpy()
-        sj_tensor = obs_sender[:, 1:, :, :].view(batch_size, 2, self.nj, height, width).transpose(1, 2)
-        sj_tensor_reshape = sj_tensor.reshape(batch_size * self.nj, 2, height, width)
-        sj_next_tensor = obs_sender_next[:, 1:, :, :].view(batch_size, 2, self.nj, height, width).transpose(1, 2)
-        sj_next_tensor_reshape = sj_next_tensor.reshape(batch_size * self.nj, 2, height, width)
         critic_loss_Gj = sender_calculate_critic_loss(self.critic_Gj, self.target_critic_Gj, self.critic_loss_criterion,
-                                                      torch.flatten(rj), input=sj_tensor_reshape,
-                                                      aj=torch.flatten(aj).unsqueeze(dim=-1),
-                                                      input_next=sj_next_tensor_reshape,
-                                                      aj_next=torch.flatten(aj_next).unsqueeze(dim=-1),
-                                                      gamma=self.config.sender.gamma)
+                                                      rj, input=obs_sender, aj=aj, input_next=obs_sender_next,
+                                                      aj_next=aj_next, gamma=self.config.sender.gamma)
         return critic_loss_Gi, critic_loss_Gj
 
     def softupdate_2target_critics(self):
@@ -183,31 +166,19 @@ class sender_class(object):
 
         ''' SG (Signaling Gradient) '''
         # s, aj
-        Gi = self.critic_Gi.wrapped_forward(obs_sender, aj).squeeze()
-
-        # advantage
-        a_table_size = self.a_joint_table.size()[0]
-        a_joint_table_repeat = self.a_joint_table.unsqueeze(dim=0).repeat(batch_size, 1, 1)
-        obs_sender_repeat = obs_sender.unsqueeze(dim=1).repeat(1, a_table_size, 1, 1, 1)
-        a_joint_table_repeat_view = a_joint_table_repeat.view(batch_size * a_table_size, -1)
-        obs_sender_repeat_view = obs_sender_repeat.view(batch_size * a_table_size, 2 * nj + 1, height, width)
-
-        Gi_table = self.critic_Gi.wrapped_forward(obs_sender_repeat_view, a_joint_table_repeat_view)
-        Gi_view = Gi_table.view(batch_size, a_table_size)
-        Vi = torch.mean(Gi_view, dim=1)
-        advantage = Vi - Gi
+        Gi = self.critic_Gi.wrapped_forward(obs_sender, aj)
 
         log_phi_sigma = torch.log(phi_sigma)
         log_pij_aj = torch.log(pij_aj)
 
-        coe_for_recovery_fromgumbel = self.config.sender.coe_for_recovery_fromgumbel  # tuning for gumbel-softmax
-        term = torch.mean(advantage.detach() * (torch.sum(log_phi_sigma, dim=1)
-                                                + torch.sum(log_pij_aj, dim=1) * coe_for_recovery_fromgumbel))
+        # tuning for gumbel-softmax
+        term = torch.mean(Gi.detach() * (log_phi_sigma
+                                         + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
 
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
 
-        ''' BCE Obedience Constraint (Lagrangian): Independent'''
+        ''' BCE Obedience Constraint (Lagrangian) '''
         sigma_counterfactual_x = torch.randint(height, size=(batch_size, nj)).to(self.device)
         sigma_counterfactual_y = torch.randint(width, size=(batch_size, nj)).to(self.device)
         sigma_counterfactual_int = sigma_counterfactual_x * width + sigma_counterfactual_y
@@ -219,6 +190,7 @@ class sender_class(object):
         obs_receiver = obs_and_message_receiver[:, :, 0:self.config.n_channels.obs_and_message_receiver - 1, :, :]
         if obs_receiver.size()[2] == 0:
             obs_receiver = None
+
         if obs_receiver is not None:
             obs_and_message_counterfactual_receiver = torch.cat([obs_receiver, sigma_counterfactual.unsqueeze(dim=2)],
                                                                 dim=2)
@@ -233,22 +205,28 @@ class sender_class(object):
         pij_counterfactual_all = torch.cat(pij_counterfactual_list, dim=1)
         pij_delta = pij - pij_counterfactual_all
 
-        # sj
-        sj_tensor = obs_sender[:, 1:, :, :].view(batch_size, 2, self.nj, height, width).transpose(1, 2)
-        sj_tensor_reshape = sj_tensor.reshape(batch_size * self.nj, 2, height, width)
-        sj_repeat = sj_tensor_reshape.unsqueeze(dim=1).repeat(1, self.dim_action, 1, 1, 1)
-        aj_each_table = torch.arange(self.dim_action, device=self.device).unsqueeze(dim=0) \
-            .repeat(batch_size * self.nj, 1)
+        pij_joint = pij_delta[:, 0, :]
+        for j in range(1, nj):
+            pij_joint = torch.bmm(pij_joint.unsqueeze(dim=-1), pij_delta[:, j, :].unsqueeze(dim=1)).view(batch_size, -1)
+        # pij_np = pij_joint.detach().numpy()
 
-        sj_repeat_reshape = sj_repeat.reshape(batch_size * self.nj * self.dim_action, 2, height, width)
-        aj_each_reshape = aj_each_table.reshape(batch_size * self.nj * self.dim_action, 1)
+        a_table_size = self.a_joint_table.size()[0]
+        a_joint_table_repeat = self.a_joint_table.unsqueeze(dim=0).repeat(batch_size, 1, 1)
+        obs_sender_repeat = obs_sender.unsqueeze(dim=1).repeat(1, a_table_size, 1, 1, 1)
+        # size_common = a_joint_table_repeat.size()
+        # size_temp = []
+        a_joint_table_repeat_view = a_joint_table_repeat.view(batch_size * a_table_size, -1)
+        obs_sender_repeat_view = obs_sender_repeat.view(batch_size * a_table_size, 2 * nj + 1, height, width)
 
-        Gj_table = self.critic_Gj.wrapped_forward(sj_repeat_reshape, aj_each_reshape)
-        Gj_view = Gj_table.view(batch_size, nj, self.dim_action)
+        # s, aj
+        Gj_table = self.critic_Gj.wrapped_forward(obs_sender_repeat_view, a_joint_table_repeat_view)
+        Gj_view = Gj_table.view(batch_size, a_table_size, nj)
+        # Vj = self.calculate_v(self.critic_Gj, obs_sender, phi, obs_receiver)
+        # advantage_j_table = Gj_table - Vj.unsqueeze(dim=1).repeat(1, self.dim_action)
+        term = torch.prod(phi_sigma, dim=1).unsqueeze(dim=-1).repeat(1, nj) \
+               * torch.sum(pij_joint.unsqueeze(dim=-1).repeat(1, 1, nj).detach() * Gj_view.detach(), dim=1)
 
-        term = phi_sigma * torch.sum(pij_delta.detach() * Gj_view.detach(), dim=2)
         constraint_left = torch.mean(term, dim=0)
-
         flag = constraint_left < 0
         mask = flag.to(int).to(self.device)
         constraint_left_needgrad = torch.sum(constraint_left * mask)

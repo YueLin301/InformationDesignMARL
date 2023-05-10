@@ -85,14 +85,14 @@ class critic(net_base):
 
 
 class critic_embedding(net_base):
-    def __init__(self, input_n_channels, output_dims, config, belongto, name='critic', device=None):
+    def __init__(self, input_n_channels, dim_a, output_dims, config, belongto, name='critic', device=None):
         super(critic_embedding, self).__init__(input_n_channels, config, belongto, name=name, device=device)
 
         # state: (2 * nj +1) * height * width
         # joint a: 4 * nj
         self.height = config.env.map_height
         self.width = config.env.map_width
-        self.a_embedding = torch.nn.Linear(config.env.nj, self.height * self.width,  # output_dim
+        self.a_embedding = torch.nn.Linear(dim_a, self.height * self.width,  # output_dim
                                            dtype=torch.double)
 
         # self.action_dim = config.env.dim_action

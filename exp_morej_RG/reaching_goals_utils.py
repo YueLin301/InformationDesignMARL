@@ -37,11 +37,11 @@ def plot_with_wandb(chart_name_list, batch, i_episode):
     rj_mean = float(torch.sum(torch.mean(rj, dim=1)))
     entry['reward_receiver_mean'] = rj_mean
 
-    rj_each = torch.sum(rj, dim=0)
-    r_tot = ri + torch.sum(rj_each)
+    r_tot = ri + torch.sum(rj, dim=1).squeeze()
     r_tot_sum = float(torch.sum(r_tot))
     entry['social_welfare'] = r_tot_sum
 
+    rj_each = torch.sum(rj, dim=0)
     for i in range(3, len(chart_name_list)):
         entry[chart_name_list[i]] = float(rj_each[i - 3])
     wandb.log(entry, step=i_episode // 2)

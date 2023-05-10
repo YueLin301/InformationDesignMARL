@@ -170,10 +170,12 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
 
 
 if __name__ == '__main__':
-    # debug_flag = True
-    debug_flag = False
+    debug_flag = True
+    # debug_flag = False
 
-    from DIAL_modified.config_RG import config
+    # from DIAL_modified.config_RG import config
+    from DIAL_modified.config_RG5 import config
+
     from env import reaching_goals
     import wandb
     from exp_reaching_goals.mykey import wandb_login_key
@@ -200,7 +202,4 @@ if __name__ == '__main__':
         receiver.build_connection(sender)
         env = reaching_goals.reaching_goals_env(config.env)
 
-        if debug_flag:
-            train(env, sender, receiver, config, device, using_wandb=False, seed=seed)
-        else:
-            train(env, sender, receiver, config, device, using_wandb=True, seed=seed)
+        train(env, sender, receiver, config, device, using_wandb=not debug_flag, seed=seed)

@@ -4,23 +4,23 @@ from exp_reaching_goals.configs.path_config import config_path
 config = ConfigDict()
 
 config.main = ConfigDict()
-config.main.exp_name = 'RG_map3_DIAL'
+config.main.exp_name = 'RG_map5_DIAL'
 
 # ==================================================
 config.env = ConfigDict()
-config.env.map_height = 3
-config.env.map_width = 3
+config.env.map_height = 5
+config.env.map_width = 5
 config.env.max_step = 50
 config.env.aligned_object = False
 config.env.dim_action = 4
 config.env.bounded = True
 
-config.env.reward_amplifier = 20
-config.env.punish_amplifier = 5
+config.env.reward_amplifier = 12
+config.env.punish_amplifier = 3
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 100000
+config.train.n_episodes = 300000
 config.train.n_episodes *= 2
 config.train.period = 500
 # config.train.n_episodes = 50
@@ -49,14 +49,14 @@ config.receiver.eps = 0.05
 config.receiver.gamma = 0.1
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
-config.receiver.obs_range = [1, 0]  # oj: receiver position, receiver's apple position
+config.receiver.obs_range = [0, 0]  # oj: receiver position, receiver's apple position
 
 # ==================================================
 config.n_channels = ConfigDict()
 config.n_channels.obs_sender = 2 if config.env.aligned_object else 3  # receiver position, receiver apple position ; receiver position, sender apple position, receiver apple position
 if config.sender.regradless_agent_pos:
     config.n_channels.obs_sender -= 1
-config.n_channels.obs_and_message_receiver = 2  # receiver position, fake apple position
+config.n_channels.obs_and_message_receiver = sum(config.receiver.obs_range) + 1  # receiver position, message
 
 # ==================================================
 config.nn = ConfigDict()
