@@ -20,7 +20,8 @@ config.env.nj = 2
 
 # ==================================================
 config.train = ConfigDict()
-config.train.n_episodes = 100000
+# config.train.n_episodes = 100000
+config.train.n_episodes = 50
 config.train.n_episodes *= 2
 config.train.period = 500
 # config.train.n_episodes = 50

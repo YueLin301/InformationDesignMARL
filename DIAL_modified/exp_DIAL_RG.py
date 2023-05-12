@@ -170,8 +170,8 @@ def train(env, sender, receiver, config, device, using_wandb=False, seed=None):
 
 
 if __name__ == '__main__':
-    debug_flag = True
-    # debug_flag = False
+    # debug_flag = True
+    debug_flag = False
 
     # from DIAL_modified.config_RG import config
     from DIAL_modified.config_RG5 import config

@@ -110,15 +110,13 @@ class reaching_goals_env(object):
         return
 
     def calculate_distance(self, pos1, pos2):
-        x1, x2 = pos1[:, 0] / (self.map_height - 1), pos2[:, 0] / (self.map_height - 1)
-        y1, y2 = pos1[:, 1] / (self.map_width - 1), pos2[:, 1] / (self.map_width - 1)
-        pos1_, pos2_ = torch.cat([x1.unsqueeze(dim=-1), y1.unsqueeze(dim=-1)], dim=-1), \
-                       torch.cat([x2.unsqueeze(dim=-1), y2.unsqueeze(dim=-1)], dim=-1)
+        # x1, x2 = pos1[:, 0] / (self.map_height - 1), pos2[:, 0] / (self.map_height - 1)
+        # y1, y2 = pos1[:, 1] / (self.map_width - 1), pos2[:, 1] / (self.map_width - 1)
+        # pos1_, pos2_ = torch.cat([x1.unsqueeze(dim=-1), y1.unsqueeze(dim=-1)], dim=-1), \
+        #                torch.cat([x2.unsqueeze(dim=-1), y2.unsqueeze(dim=-1)], dim=-1)
 
-        distance_all = torch.cdist(pos1_, pos2_, p=2)
-        eye = torch.eye(self.nj, device=self.device)
-
-        return torch.sum(distance_all * eye, dim=0)
+        # return torch.sqrt(torch.sum((pos1_ - pos2_) ** 2, dim=1))
+        return torch.sqrt(torch.sum((pos1 - pos2) ** 2, dim=1))
 
     def step(self, actions):
         assert hasattr(actions, '__iter__')
@@ -137,7 +135,8 @@ class reaching_goals_env(object):
         # flag_ij = int(torch.prod(self.apple_i_positions_int.repeat(self.nj) - self.pos_j_positions_int))
 
         flag_all_j_int = self.apple_j_positions_int - self.pos_j_positions_int
-        flag_all_j = flag_all_j_int.to(bool).to(int)  # 0 if reached
+        flag_all_j = flag_all_j_int.to(bool).to(int) # 0 if reached
+        # flag_all_j2 = (flag_all_j_int != 0).to(int)
         flag_ij = torch.prod(self.apple_i_positions_int.repeat(self.nj) - self.pos_j_positions_int).to(bool).to(int)
 
         distance_jj = self.calculate_distance(self.pos_j_positions, self.apple_j_positions)
@@ -165,7 +164,8 @@ class reaching_goals_env(object):
             flag_ij = int(torch.prod(self.apple_i_positions_int.repeat(self.nj) - self.pos_j_positions_int))
 
         self.step_i += 1
-        done = True if self.step_i >= self.max_step else False
+        # done = True if self.step_i >= self.max_step else False
+        done = (self.step_i >= self.max_step)
         state = self.channels.unsqueeze(dim=0)
 
         return state.detach(), i_reward, j_rewards.detach(), done

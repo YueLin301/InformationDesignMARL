@@ -80,7 +80,7 @@ class sender_class(object):
 
         import itertools
         action_list = [[a for a in range(dim_action)] for _ in range(self.nj)]
-        self.a_joint_table = torch.tensor(tuple(itertools.product(*action_list)), dtype=torch.double, device=device)
+        self.a_joint_table = torch.tensor(tuple(itertools.product(*action_list)), dtype=torch.float32, device=device)
 
     def build_connection(self, receiver_list):
         self.receiver_list = receiver_list
@@ -183,7 +183,7 @@ class sender_class(object):
         sigma_counterfactual_y = torch.randint(width, size=(batch_size, nj)).to(self.device)
         sigma_counterfactual_int = sigma_counterfactual_x * width + sigma_counterfactual_y
         sigma_counterfactual = torch.nn.functional.one_hot(sigma_counterfactual_int, num_classes=height * width) \
-            .view(batch_size, nj, height, width).to(torch.double)
+            .view(batch_size, nj, height, width).to(torch.float32)
 
         # oj
         obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]

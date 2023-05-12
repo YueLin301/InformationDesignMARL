@@ -192,6 +192,7 @@ class sender_class(object):
         a_joint_table_repeat_view = a_joint_table_repeat.view(batch_size * a_table_size, -1)
         obs_sender_repeat_view = obs_sender_repeat.view(batch_size * a_table_size, 2 * nj + 1, height, width)
 
+        # with torch.no_grad():
         Gi_table = self.critic_Gi.wrapped_forward(obs_sender_repeat_view, a_joint_table_repeat_view)
         Gi_view = Gi_table.view(batch_size, a_table_size)
         Vi = torch.mean(Gi_view, dim=1)

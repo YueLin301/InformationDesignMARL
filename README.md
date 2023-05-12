@@ -1,7 +1,7 @@
 ## Information Design in Multi-Agent Reinforcement Learning
 
 This repository presents a hasty and rudimentary implementation 
-of all experiments mentioned in [our paper (arxiv version)](). 
+of all experiments mentioned in [our paper (arxiv version)](https://arxiv.org/abs/2305.06807). 
 In this version, the constrained optimization problem is implemented by a Lagrangian method.
 
 1. The dual gradient descent method is presented in the `DGD-version` branch. 
