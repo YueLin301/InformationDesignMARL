@@ -45,7 +45,7 @@ class sender_class(object):
         # Gi(s,aj)
         self.critic_Gi = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gi',
                                 device=device)
-        # Gi(s,aj)
+        # Gj(s,aj)
         self.critic_Gj = critic(config.n_channels.obs_sender, dim_action, config, belongto=name, name='critic_Gj',
                                 device=device)
         # phi(sigma|s)
@@ -70,25 +70,37 @@ class sender_class(object):
         self.receiver = receiver
 
     def calculate_v(self, critic, input_critic, phi, obs_receiver):
-        # v(s) = \sum_sigma phi(sigma|s) * \sum_a pi(a|sigma) * Gi(s,a)
         batch_size = phi.shape[0]
         message_dim = phi.shape[1]
-        all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
-            .view(message_dim,
-                  self.config.env.map_height,
-                  self.config.env.map_width) \
-            .unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2).to(self.device)
 
-        obs_receiver = obs_receiver.repeat(1, message_dim, 1, 1).unsqueeze(dim=2)
-        obs_and_message_receiver = torch.cat([obs_receiver, all_message], dim=2)
+        # v(s) = \sum_sigma phi(sigma|s) * \sum_a pi(a|sigma) * Gi(s,a)
+        if obs_receiver is not None:
+            all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
+                .view(message_dim,
+                      self.config.env.map_height,
+                      self.config.env.map_width) \
+                .unsqueeze(dim=0).repeat(batch_size, 1, 1, 1).unsqueeze(dim=2).to(self.device)
 
-        obs_and_message_receiver_flatten = obs_and_message_receiver.view(batch_size * message_dim, 2,
-                                                                         obs_and_message_receiver.shape[-2],
-                                                                         obs_and_message_receiver.shape[-1])
+            obs_receiver = obs_receiver.unsqueeze(dim=1).repeat(1, message_dim, 1, 1, 1)
+            # obs_receiver = obs_receiver.repeat(1, message_dim, 1, 1).unsqueeze(dim=2)
+            obs_and_message_receiver = torch.cat([obs_receiver, all_message], dim=2)
 
-        _, pi_flatten = self.receiver.choose_action(obs_and_message_receiver_flatten)
-        pi = pi_flatten.view(obs_and_message_receiver.shape[0], obs_and_message_receiver.shape[1], pi_flatten.shape[-1])
-        pi_sum_all_message = torch.sum(pi * phi.unsqueeze(dim=2).repeat(1, 1, pi.shape[-1]), dim=1)
+            obs_and_message_receiver_flatten = obs_and_message_receiver.view(batch_size * message_dim,
+                                                                             obs_and_message_receiver.shape[-3],
+                                                                             obs_and_message_receiver.shape[-2],
+                                                                             obs_and_message_receiver.shape[-1])
+
+            _, pi_flatten = self.receiver.choose_action(obs_and_message_receiver_flatten)
+            pi = pi_flatten.view(obs_and_message_receiver.shape[0], obs_and_message_receiver.shape[1],
+                                 pi_flatten.shape[-1])
+            pi_sum_all_message = torch.sum(pi * phi.unsqueeze(dim=2).repeat(1, 1, pi.shape[-1]), dim=1)
+        else:
+            all_message = torch.nn.functional.one_hot(torch.arange(message_dim)) \
+                .view(message_dim,
+                      self.config.env.map_height,
+                      self.config.env.map_width).unsqueeze(dim=1).to(self.device).type(torch.double)
+            _, pi_flatten = self.receiver.choose_action(all_message)
+            pi_sum_all_message = torch.einsum('ij,jk->ik', phi, pi_flatten)
 
         g_table = critic(input_critic)
         v = torch.sum(g_table * pi_sum_all_message, dim=1)
@@ -163,8 +175,13 @@ class sender_class(object):
         # s, aj
         Gi_table = self.critic_Gi(obs_sender)
         Gi = Gi_table[range(len(aj)), aj]
-        obs_receiver = obs_sender[:, 0:1:, :,
-                       :]  # This is for advantage. The other way is to make the receiver to tell the results, in which the sender doesn't need to have access to this var.
+
+        # oj
+        obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
+        obs_receiver = obs_and_message_receiver[:, 0:self.config.n_channels.obs_and_message_receiver - 1, :, :]
+        if obs_receiver.size()[1] == 0:
+            obs_receiver = None
+
         Vi = self.calculate_v(self.critic_Gi, obs_sender, phi, obs_receiver)
         advantage_i = Gi - Vi
 
@@ -173,12 +190,7 @@ class sender_class(object):
 
         # tuning for gumbel-softmax
         term = torch.mean(advantage_i.detach() * (log_phi_sigma
-                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel
-                                                  ))
-        # term1 = torch.mean(Gi.detach() * log_phi_sigma)
-        # term2 = torch.mean(Gi.detach() * log_pij_aj)
-        # gradeta1 = torch.autograd.grad(term1, list(self.signaling_net.parameters()), retain_graph=True)
-        # gradeta2 = torch.autograd.grad(term2, list(self.signaling_net.parameters()), retain_graph=True)
+                                                  + log_pij_aj * self.config.sender.coe_for_recovery_fromgumbel))
 
         gradeta = torch.autograd.grad(term, list(self.signaling_net.parameters()), retain_graph=True)
         gradeta_flatten = flatten_layers(gradeta)
@@ -197,9 +209,11 @@ class sender_class(object):
             sigma_counterfactual[range(batch_len), sigma_counterfactual_index[0], sigma_counterfactual_index[1]] = 1
             # sigma_counterfactual_np = np.array(sigma_counterfactual)
             sigma_counterfactual = sigma_counterfactual.unsqueeze(dim=1)
-            obs_and_message_receiver = batch.data[batch.name_dict['obs_and_message_receiver']]
-            obs_and_message_counterfactual_receiver = torch.cat([obs_and_message_receiver[:, 0:1, :, :],
-                                                                 sigma_counterfactual], dim=1)
+
+            if obs_receiver is not None:
+                obs_and_message_counterfactual_receiver = torch.cat([obs_receiver, sigma_counterfactual], dim=1)
+            else:
+                obs_and_message_counterfactual_receiver = sigma_counterfactual
             _, pij_counterfactual = self.receiver.choose_action(obs_and_message_counterfactual_receiver)
 
             # s, aj
@@ -213,7 +227,7 @@ class sender_class(object):
             constraint_left = torch.mean(term)
             if constraint_left < self.config.sender.sender_constraint_right:
                 gradeta_constraint_term = torch.autograd.grad(constraint_left, list(self.signaling_net.parameters()),
-                                                               retain_graph=True)
+                                                              retain_graph=True)
                 gradeta_constraint_flatten = flatten_layers(gradeta_constraint_term)
 
                 if self.config.sender.sender_objective_alpha >= 1:

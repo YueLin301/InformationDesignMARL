@@ -49,6 +49,7 @@ config.receiver.eps = 0.05
 config.receiver.gamma = 0.1
 # config.receiver.entropy_coe = 1e-4
 config.receiver.entropy_coe = 0
+config.receiver.obs_range = [1, 0]  # oj: receiver position, receiver's apple position
 
 # ==================================================
 config.n_channels = ConfigDict()
