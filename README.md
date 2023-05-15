@@ -18,10 +18,7 @@ so as to facilitate rapid iteration and trial-and-error.
 
 ## For Reproduction
 You can run the experiments by running `main.py` in the corresponding `exp_` prefix folder.
-1. Create a file `mykey.py` in the `exp_` prefix folder. 
-Experiments that have been successful and have relatively good performance include:
-    - Recommendation
-    - Reaching Goals (map `3x3`)
+1. Create a file `mykey.py` in the `exp_` prefix folder.
 2. Edit `mykey.py`:
 ```python
 wandb_login_key = '' # Your login API key
