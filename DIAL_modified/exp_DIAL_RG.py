@@ -173,8 +173,8 @@ if __name__ == '__main__':
     # debug_flag = True
     debug_flag = False
 
-    # from DIAL_modified.config_RG import config
-    from DIAL_modified.config_RG5 import config
+    from DIAL_modified.config_RG import config
+    # from DIAL_modified.config_RG5 import config
 
     from env import reaching_goals
     import wandb

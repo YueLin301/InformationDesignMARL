@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_PG import config # PG
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_PG import config  # PGOC
     # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0 import config # SG
-    # from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # SGOC
+    from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config  # SGOC
 
     '''control oj'''
     # from exp_reaching_goals.configs_oj.RG_map3_SGOC_oj_00 import config  # message
@@ -62,6 +62,6 @@ if __name__ == '__main__':
 
     '''5x5 map'''
     # from exp_reaching_goals.configs_bigger_map.RG_map5_PGOC import config  # PGOC
-    from exp_reaching_goals.configs_bigger_map.RG_map5_SGOC import config  # SGOC
+    # from exp_reaching_goals.configs_bigger_map.RG_map5_SGOC import config  # SGOC
 
     main(config, seeds, device_name, using_wandb=using_wandb)
