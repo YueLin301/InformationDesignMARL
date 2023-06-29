@@ -338,11 +338,18 @@ class receiver_class(object):
 
         return critic_loss_Qj, actor_obj_mean, entropy
 
+    def softupdate_target_critic(self):
+        tau = self.config.nn.target_critic_tau
+        for tar, cur in zip(self.target_critic_Qj.parameters(), self.critic_Qj.parameters()):
+            tar.data.copy_(cur.data * (1.0 - tau) + tar.data * tau)
+        return
+
     def update(self, critic_loss_Qj, actor_obj_mean, entropy):
         grad_and_step(self.actor, self.actor_optimizer, actor_obj_mean + self.config.receiver.entropy_coe * entropy,
                       'ascent')
         grad_and_step(self.critic_Qj, self.critic_Qj_optimizer, critic_loss_Qj, 'descent')
 
+        self.softupdate_target_critic()
         return
 
     def save_models(self):

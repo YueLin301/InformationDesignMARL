@@ -1,14 +1,13 @@
-from exp_reaching_goals.agent_class import sender_class, receiver_class
+from exp_reaching_goals.agent_class import sender_class
+from exp_reaching_goals.agent_formal_constrained import receiver_class
 from exp_reaching_goals.episode_generator import run_an_episode
 from exp_reaching_goals.buffer_class import buffer_class
 import torch
 
 from env.reaching_goals import reaching_goals_env
 
-# from exp_reaching_goals.configs.exp4b_aligned_load_map5 import config
-# from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config
-# from exp_reaching_goals.configs_formal.RG_map3_no_punish import config
-from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0_noinfo import config
+from exp_reaching_goals.configs_formal.RG_map3_gam01_lam0005_eps0 import config
+
 
 if __name__ == '__main__':
     # device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
