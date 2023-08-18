@@ -16,7 +16,7 @@ class student_sampler(object):
     def __init__(self, prob_good, device):
         self.prob_good = prob_good
         self.prob_bad = 1 - prob_good
-        self.prob_distribution = torch.tensor([self.prob_bad, self.prob_good], dtype=torch.float32, device=device)
+        self.prob_distribution = torch.tensor([self.prob_bad, self.prob_good], dtype=torch.float64, device=device)
         self.sampler = torch.multinomial
 
     def sample(self, num=1):
@@ -29,8 +29,8 @@ class recommendation_env(object):
         self.config = config
         self.device = device
         self.student_sampler = student_sampler(prob_good=self.config.prob_good, device=device)
-        self.rewardmap_professor = torch.tensor(config.rewardmap_professor, dtype=torch.float32, device=device)
-        self.rewardmap_HR = torch.tensor(config.rewardmap_HR, dtype=torch.float32, device=device)
+        self.rewardmap_professor = torch.tensor(config.rewardmap_professor, dtype=torch.float64, device=device)
+        self.rewardmap_HR = torch.tensor(config.rewardmap_HR, dtype=torch.float64, device=device)
 
         assert config.sample_n_students > 0 and isinstance(config.sample_n_students, int)
         self.sample_n_students = config.sample_n_students

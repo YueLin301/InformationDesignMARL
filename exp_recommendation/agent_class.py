@@ -8,11 +8,11 @@ class hr_class():
         self.device = device
 
         self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float64), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float64)
         ).to(device)
         self.actor = torch.nn.Sequential(
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float32),
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float64),
             torch.nn.Softmax(dim=-1)
         ).to(device)
 

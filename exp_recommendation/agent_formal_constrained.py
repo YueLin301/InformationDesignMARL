@@ -10,17 +10,17 @@ class pro_formal_constrained():
 
         # G^i(s,a), rather than Q(s,sigma)
         self.critic = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float64), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float64)
         ).to(device)
         # G^j(s,a), rather than Q(sigma,a)
         self.critic_forhr = torch.nn.Sequential(
-            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float32), torch.nn.Tanh(),
-            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float32)
+            torch.nn.Linear(in_features=4, out_features=2, bias=False, dtype=torch.float64), torch.nn.Tanh(),
+            torch.nn.Linear(in_features=2, out_features=1, bias=False, dtype=torch.float64)
         ).to(device)
         self.signaling_net = torch.nn.Sequential(
             # input: one hot; output: signaling 0/1 prob. distribution
-            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float32),
+            torch.nn.Linear(in_features=2, out_features=2, bias=False, dtype=torch.float64),
             torch.nn.Softmax(dim=-1)
         ).to(device)
 
@@ -34,7 +34,7 @@ class pro_formal_constrained():
 
         self.temperature = 1
         self.softmax_forGumble = torch.nn.Softmax(dim=-1)
-        self.message_table = torch.tensor([0, 1], dtype=torch.float32, device=self.device)
+        self.message_table = torch.tensor([0, 1], dtype=torch.float64, device=self.device)
 
         self.sender_objective_alpha = self.config.pro.sender_objective_alpha
 
@@ -80,7 +80,7 @@ class pro_formal_constrained():
         return
 
     def gumbel_sample(self, dim=2):
-        u = torch.rand(dim, dtype=torch.float32)
+        u = torch.rand(dim, dtype=torch.float64)
         g = - torch.log(-torch.log(u))
         return g
 
@@ -150,9 +150,9 @@ class pro_formal_constrained():
         sigma_counterfactual_onehot = 1 - sigma_onehot.detach()
         _, pi_counterfactual, _ = self.hr.choose_action(sigma_counterfactual_onehot)
 
-        a1 = torch.tensor([1, 0], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(
+        a1 = torch.tensor([1, 0], dtype=torch.float64, device=self.device).unsqueeze(dim=0).repeat(
             self.config.env.sample_n_students, 1)
-        a2 = torch.tensor([0, 1], dtype=torch.float32, device=self.device).unsqueeze(dim=0).repeat(
+        a2 = torch.tensor([0, 1], dtype=torch.float64, device=self.device).unsqueeze(dim=0).repeat(
             self.config.env.sample_n_students, 1)
         obs_and_a1 = torch.cat([obs_onehot, a1], dim=1)
         obs_and_a2 = torch.cat([obs_onehot, a2], dim=1)

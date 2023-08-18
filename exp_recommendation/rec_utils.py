@@ -17,7 +17,7 @@ def set_net_params(net, params):
 
 
 def int_to_onehot(variable_int_list, k, device):
-    variable_onehot = torch.zeros(len(variable_int_list), k, dtype=torch.float32, device=device)
+    variable_onehot = torch.zeros(len(variable_int_list), k, dtype=torch.float64, device=device)
     variable_onehot[range(len(variable_int_list)), variable_int_list] = 1
     return variable_onehot
 
@@ -68,7 +68,7 @@ def validate_critic(agent, device):
             input2_onehot = [0, 0]
             input1_onehot[input1] = 1
             input2_onehot[input2] = 1
-            input = torch.tensor(input1_onehot + input2_onehot, dtype=torch.float32, device=device)
+            input = torch.tensor(input1_onehot + input2_onehot, dtype=torch.float64, device=device)
             q = agent.critic(input)
             if agent.name == 'pro':
                 Gj = agent.critic_forhr(input)
@@ -89,7 +89,7 @@ def validate_sig_actor(agent, device):
         elif agent.name == 'hr':
             input_onehot = [0, 0]
             input_onehot[input] = 1
-            input_tensor = torch.tensor(input_onehot, dtype=torch.float32, device=device)
+            input_tensor = torch.tensor(input_onehot, dtype=torch.float64, device=device)
             _, pi, _ = agent.choose_action(input_tensor)
             print('signal:{}, pi:{}'.format(input, pi))
         else:
@@ -109,10 +109,10 @@ def validate(pro, hr, device):
 def unittest_which_weights_are_active(pro, hr):
     # 把actor的sigmoid层注释掉就知道了
     print_params(pro, hr)
-    message_onehot_temp1 = torch.tensor([1, 0], dtype=torch.float32)
-    message_onehot_temp2 = torch.tensor([0, 1], dtype=torch.float32)
+    message_onehot_temp1 = torch.tensor([1, 0], dtype=torch.float64)
+    message_onehot_temp2 = torch.tensor([0, 1], dtype=torch.float64)
     actor_parameters = list(hr.actor.parameters())
-    actor_parameters[0].data = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32)
+    actor_parameters[0].data = torch.tensor([[1, 2], [3, 4]], dtype=torch.float64)
     print_params(pro, hr)
     _, pi1, _ = hr.choose_action(message_onehot_temp1)
     _, pi2, _ = hr.choose_action(message_onehot_temp2)
@@ -128,7 +128,7 @@ def permutation_test(pro, hr):
     for message_int in range(2):
         message_onehot = [0, 0]
         message_onehot[message_int] = 1
-        message_onehot = torch.tensor(message_onehot, dtype=torch.float32)
+        message_onehot = torch.tensor(message_onehot, dtype=torch.float64)
         _, pi, _ = hr.choose_action(message_onehot)
         print('pi(a|message={})=\t'.format(message_int), pi.tolist())
 
